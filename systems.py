@@ -1,6 +1,5 @@
 """
 Module qtools.systems
-Version 0.9 (beta)
 Author: Andreas H Nielsen
 """
 
@@ -105,7 +104,7 @@ def vis1(x,t,omega,xi,th):
 def sld(x,t,omega,xi,th):
 	'''
 	'Modified solid' damping 1DOF model
-	'''	
+	'''
 	
 	bm = 5.
 	s = th(t)
@@ -115,7 +114,7 @@ def sld(x,t,omega,xi,th):
 
 def hsld(x,t,m,b,ud,k,F0,wf):
 	'''
-	'Modified solid' damping 1DOF model with hamuonic loading
+	'Modified solid' damping 1DOF model with harmonic loading
 	'''
 	
 	f = np.array([x[1], (F0*sin(wf*t)-b*x[1]*(abs(x[0])+ud)-k*x[0])/m])

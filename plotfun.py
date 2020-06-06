@@ -1,238 +1,305 @@
 """
 Module qtools.plotfun
-Version 0.8 (beta)
-Depends on: Python 3.4, Numpy 1.10
+
 Contains functions for plotting.
-@author: Andreas H Nielsen
 """
 
 import matplotlib.pyplot as plt
-import numpy as np
-from math import floor
+from math import pi
+from . import config
 
+@config.set_module('qtools')
 def plotrs(*args,**kwargs):
-    """Function for plotting response spectra of class ResponseSpectrum.
-    
-    *args = any number of response spectra
-    
-    **kwargs options:
-    xaxis = ['f|'T'] (default 'f');
-    yaxis = ['sa','sv','sd'] (default 'sa');
-    xscale = ['log'|'lin'] (default 'log');
-    legend = [True|False] (default False);
-    save_fig = [True|False] (default False);
-    right = %f, set the upper limit on the x-axis;
-    left = %f, set the lower limit on the x-axis;
-    """
-    
-    xaxis = kwargs.get('xaxis','f')
-    yaxis = kwargs.get('yaxis','sa')
-    if yaxis not in ('sa','sv','sd'):
-        raise ValueError('The parameter yaxis must be either \'sa\', \'sv\' or \'sd\'.')
-    xscale = kwargs.get('xscale','log')
-    show_legend = kwargs.get('legend',False)
-    save_fig = kwargs.get('save_fig',False)
-    
-    if xaxis == 'f':
-        plt.xlabel('Frequency [Hz]')
-        if yaxis == 'sa':
-            plt.ylabel('Spectral acceleration [g]')
-            ymax = 0.0
-            for rs in args:
-                ymax = max(np.amax(rs.sa),ymax)
-                if xscale == 'log':
-                    plt.semilogx(rs.f,rs.sa,label=rs.label)
-                elif xscale == 'lin':
-                    plt.plot(rs.f,rs.sa,label=rs.label)
-    
-    if xaxis == 'T':
-        plt.xlabel('Period [s]')
-        if yaxis == 'sa':
-            plt.ylabel('Spectral acceleration [g]')
-            ymax = 0.0
-            for rs in args:
-                ymax = max(np.amax(rs.sa),ymax)
-                if xscale == 'log':
-                    plt.semilogx(rs.T,rs.sa,label=rs.label)
-                elif xscale == 'lin':
-                    plt.plot(rs.T,rs.sa,label=rs.label)
-    
-    if xaxis == 'f':
-        plt.xlabel('Frequency [Hz]')
-        if yaxis == 'sv':
-            plt.ylabel('Spectral velocity [m/s]')
-            ymax = 0.0
-            for rs in args:
-                ymax = max(np.amax(rs.sv),ymax)
-                if xscale == 'log':
-                    plt.semilogx(rs.f,rs.sv,label=rs.label)
-                elif xscale == 'lin':
-                    plt.plot(rs.f,rs.sv,label=rs.label)
-    
-    if xaxis == 'T':
-        plt.xlabel('Period [s]')
-        if yaxis == 'sv':
-            plt.ylabel('Spectral velocity [m/s]')
-            ymax = 0.0
-            for rs in args:
-                ymax = max(np.amax(rs.sv),ymax)
-                if xscale == 'log':
-                    plt.semilogx(rs.T,rs.sv,label=rs.label)
-                elif xscale == 'lin':
-                    plt.plot(rs.T,rs.sv,label=rs.label)
-    
-    if xaxis == 'f':
-        plt.xlabel('Frequency [Hz]')
-        if yaxis == 'sd':
-            plt.ylabel('Spectral displacement [m]')
-            ymax = 0.0
-            for rs in args:
-                ymax = max(np.amax(rs.sd),ymax)
-                if xscale == 'log':
-                    plt.semilogx(rs.f,rs.sd,label=rs.label)
-                elif xscale == 'lin':
-                    plt.plot(rs.f,rs.sd,label=rs.label)
-    
-    if xaxis == 'T':
-        plt.xlabel('Period [s]')
-        if yaxis == 'sd':
-            plt.ylabel('Spectral displacement [m]')
-            ymax = 0.0
-            for rs in args:
-                ymax = max(np.amax(rs.sd),ymax)
-                if xscale == 'log':
-                    plt.semilogx(rs.T,rs.sd,label=rs.label)
-                elif xscale == 'lin':
-                    plt.plot(rs.T,rs.sd,label=rs.label)
+	"""Function for plotting instances of class ResponseSpectrum.
 
-    # Check the upper limit and increase if necessary
-    cur_ymin, cur_ymax = plt.ylim()
-    ymax = float(floor(int(10*ymax+1)))/10.
-    if cur_ymax < ymax:
-        plt.ylim((0.0,ymax))
-        
-    # Set upper limit on x-axis if specified
-    if 'right' in kwargs:
-        if type(kwargs['right']) is float:
-            plt.xlim(right=kwargs['right'])
+	Parameters
+	----------
+	*args
+		Any number of response spectra
+	**kwargs
+		Optional parameters (see below under **Other parameters**)
 
-    # Set lower limit on x-axis if specified
-    if 'left' in kwargs:
-        if type(kwargs['left']) is float:
-            plt.xlim(left=kwargs['left'])
-            
-    if show_legend:
-        plt.legend(loc='best')
+	Other parameters
+	----------------
+	xaxis : {'f', 'T'}
+		Quantity to plot on the x-axis. Default 'f'.
+	yaxis : {'sa', 'sv', 'sd'}
+		Quantity to plot on the y-axis. Default 'sa'.
+	xscale : {'log', 'lin'}
+		Specifies the scale on the x-axis (logarithmic or linear).
+		Default 'log'.
+	legend : bool
+		Display the legend on the plot. Default False.
+	filename : str
+		If given, save plot to file using `filename` as file name. The file
+		name should include the extension .png.
+	dpi : int
+		Dots per inch to use if save_fig is ``True``. Default 300.
+	right : float
+		Sets the upper limit on the x-axis.
+	left : float
+		Sets the lower limit on the x-axis.
+	top : float
+		Sets the upper limit on the y-axis.
+	bottom : float
+		Sets the lower limit on the y-axis.
 
-    plt.grid(color='0.75')
+	Notes
+	-----
+	The line format can be set in the 'fmt' attribute of a response spectrum.
+	The line format is passed directly to matplotlib.pyplot.plot as 'fmt'.
 
-    if save_fig:
-        plt.savefig('rsplot_save.png',dpi=1000,format='png')
+	Examples
+	--------
+	A typical call with 3 response spectra and default options is::
 
-    plt.show()
-    
-    
+		qt.plotrs(rs1,rs2,rs3)
+
+	If the spectra are contained in a list (say, `rslist`), unpack the list
+	inside the call using the star operator::
+
+		qt.plotrs(*rslist)
+
+	"""
+	# Get the parameters
+	xaxis = kwargs.get('xaxis','f')
+	yaxis = kwargs.get('yaxis','sa')
+	xscale = kwargs.get('xscale','log')
+	show_legend = kwargs.get('legend',False)
+	filename = kwargs.get('filename','')
+	dpi = kwargs.get('dpi',300)
+
+	# Set the appropriate type of plot
+	if xscale == 'log':
+		plot = plt.semilogx
+	elif xscale == 'lin':
+		plot = plt.plot
+
+	# Set the labels on the axes
+	if xaxis == 'f':
+		plt.xlabel('Frequency [Hz]')
+	elif xaxis == 'T':
+		plt.xlabel('Period [s]')
+	else:
+		raise ValueError('{} is not a valid value for the x-axis on a response spectrum plot'.format(xaxis))
+	if yaxis == 'sa':
+		plt.ylabel('Spectral acceleration [g]')
+	elif yaxis == 'sv':
+		plt.ylabel('Spectral velocity [m/s]')
+	elif yaxis == 'sd':
+		plt.ylabel('Spectral displacement [m]')
+	elif yaxis == 'ei':
+		plt.ylabel('Spectral input energy [J/kg]')
+	else:
+		raise ValueError('{} is not a valid value for the y-axis on a response spectrum plot'.format(yaxis))
+
+	for rs in args:
+		x = rs.__dict__[xaxis]
+		y = rs.__dict__[yaxis]
+		plot(x,y,rs.fmt,label=rs.label)
+
+	# Set upper limit on x-axis if specified
+	if 'right' in kwargs:
+		plt.xlim(right=kwargs['right'])
+
+	# Set lower limit on x-axis if specified
+	if 'left' in kwargs:
+		plt.xlim(left=kwargs['left'])
+
+	# Set upper limit on y-axis if specified
+	if 'top' in kwargs:
+		plt.ylim(top=kwargs['top'])
+
+	# Set lower limit on y-axis if specified
+	if 'bottom' in kwargs:
+		plt.ylim(bottom=kwargs['bottom'])
+
+	if show_legend:
+		plt.legend(loc='best')
+
+	plt.grid(color='0.75')
+
+	if len(filename) > 0:
+		plt.savefig(filename,dpi=dpi,format='png')
+
+	plt.show()
+
+@config.set_module('qtools')
 def plotps(*args,**kwargs):
-    """Function for plotting power spectra of class PowerSpectrum.
-    
-    *args = any number of power spectra
-    
-    **kwargs options:
-    xaxis = ['f|'T'|'w'] (default 'f');
-    yaxis = ['Sw','Sk','X'] (default 'Sw');
-    xscale = ['log'|'lin'] (default 'lin');
-    legend = [True|False] (default True).
-    """
-    
-    xaxis = kwargs.get('xaxis','f')
-    yaxis = kwargs.get('yaxis','Sw')
-    xscale = kwargs.get('xscale','lin')
-    show_legend = kwargs.get('legend',False)
-    
-    if xaxis == 'f':
-        plt.xlabel('Frequency [Hz]')
-        if yaxis == 'Sw':
-            plt.ylabel('Spectral power density')
-            ymax = 0.0
-            for ps in args:
-                ymax = max(np.amax(ps.Sw),ymax)
-                if xscale == 'log':
-                    plt.semilogx(ps.f,ps.Sw,label=ps.label)
-                elif xscale == 'lin':
-                    plt.plot(ps.f,ps.Sw,label=ps.label)
-    
-    if xaxis == 'f':
-        plt.xlabel('Frequency [Hz]')
-        if yaxis == 'X':
-            plt.ylabel('Amplitude [unit]')
-            ymax = 0.0
-            for ps in args:
-                ymax = max(np.amax(ps.X),ymax)
-                if xscale == 'log':
-                    plt.semilogx(ps.f,ps.X,label=ps.label)
-                elif xscale == 'lin':
-                    plt.plot(ps.f,ps.X,label=ps.label)
-    
-    if xaxis == 'f':
-        plt.xlabel('Frequency [Hz]')
-        if yaxis == 'Sk0':
-            plt.ylabel('Amplitude [unit]')
-            ymax = 0.0
-            for ps in args:
-                ymax = max(np.amax(ps.Sk),ymax)
-                if xscale == 'log':
-                    plt.semilogx(ps.f,ps.Sk0,label=ps.label)
-                elif xscale == 'lin':
-                    plt.plot(ps.f,ps.Sk0,label=ps.label)
+	"""Function for plotting instances of class PowerSpectrum.
 
-    # Set right if specified
-    if 'right' in kwargs:
-        targ = type(kwargs['right']) 
-        if (targ is float) or (targ is int):
-            plt.xlim(right=kwargs['right'])
+	Parameters
+	----------
+	*args
+		Any number of power spectra
+	**kwargs
+		Optional parameters (see below under **Other parameters**)
 
-    # Set left if specified
-    if 'left' in kwargs:
-        targ = type(kwargs['left'])
-        if (targ is float) or (targ is int):
-            plt.xlim(left=kwargs['left'])
-            
-    if show_legend:
-        plt.legend(loc='best')
+	Other parameters
+	----------------
+	xaxis : {'f', 'T', 'w'}
+		Quantity to plot on the x-axis. Default 'f'.
+	yaxis : {'Sw', 'Sk', 'Wf', 'X'}
+		Quantity to plot on the y-axis. Default 'Wf'.
+	xscale : {'log', 'lin'}
+		Specifies the scale on the x-axis (logarithmic or linear).
+		Default 'lin'.
+	legend : bool
+		Display the legend on the plot. Default False.
+	filename : str
+		If given, save plot to file using `filename` as file name. The file
+		name should include the extension .png.
+	dpi : int
+		Dots per inch to use if plot is saved to file. Default 300.
 
-    plt.show()
+	Examples
+	--------
+	See :func:`qtools.plotrs`.
+	"""
 
+	xaxis = kwargs.get('xaxis','f')
+	yaxis = kwargs.get('yaxis','Wf')
+	xscale = kwargs.get('xscale','lin')
+	show_legend = kwargs.get('legend',False)
+	filename = kwargs.get('filename','')
+	dpi = kwargs.get('dpi',300)
+
+	# Set the appropriate type of plot
+	if xscale == 'log':
+		plot = plt.semilogx
+	elif xscale == 'lin':
+		plot = plt.plot
+
+	# Check the validity of the arguments and set the labels on the axes
+	if xaxis == 'f' and (yaxis == 'Sw' or yaxis == 'Sk'):
+		config.vprint('WARNING: with yaxis = \'{}\', the x-axis will be shown '
+				'as \'w\' (circular frequency)'.format(yaxis))
+		xaxis = 'w'
+	if xaxis == 'w' and (yaxis == 'Wf' or yaxis == 'X'):
+		config.vprint('WARNING: with yaxis = \'{}\', the x-axis will be shown '
+				'as \'f\' (frequency)'.format(yaxis))
+		xaxis = 'f'
+	if xaxis == 'w':
+		plt.xlabel('Frequency [rad/s]')
+		sf = 2*pi
+		xaxis = 'f'
+	elif xaxis == 'f':
+		plt.xlabel('Frequency [Hz]')
+		sf = 1
+	else:
+		raise ValueError('{} is not a valid value for the x-axis on a power spectrum plot'.format(xaxis))
+	if yaxis == 'X':
+		plt.ylabel('Fourier amplitude [{}]'.format(args[0].unit['X']))
+		if len(set([ps.unit['X'] for ps in args])) > 1:
+			config.vprint('WARNING: in plotps, it is assumed that all spectra have the same units.')
+	elif yaxis == 'Wf' or yaxis == 'Sk' or yaxis == 'Sw':
+		plt.ylabel('Spectral power density [{}]'.format(args[0].unit['S']))
+		if len(set([ps.unit['S'] for ps in args])) > 1:
+			config.vprint('WARNING: in plotps, it is assumed that all spectra have the same units.')
+	else:
+		raise ValueError('{} is not a valid value for the y-axis on a response spectrum plot'.format(yaxis))
+
+	# Create the plots
+	for ps in args:
+		x = sf*ps.__dict__[xaxis]
+		y = ps.__dict__[yaxis]
+		if ps.fmt == '_default_':
+			plot(x,y,label=ps.label)
+		else:
+			plot(x,y,ps.fmt,label=ps.label)
+
+	# Set upper limit on x-axis if specified
+	if 'right' in kwargs:
+		plt.xlim(right=kwargs['right'])
+
+	# Set lower limit on x-axis if specified
+	if 'left' in kwargs:
+		plt.xlim(left=kwargs['left'])
+
+	# Set upper limit on y-axis if specified
+	if 'top' in kwargs:
+		plt.ylim(top=kwargs['top'])
+
+	# Set lower limit on y-axis if specified
+	if 'bottom' in kwargs:
+		plt.ylim(bottom=kwargs['bottom'])
+
+	if show_legend:
+		plt.legend(loc='best')
+
+	if len(filename) > 0:
+		plt.savefig(filename,dpi=dpi,format='png')
+
+	plt.show()
+
+@config.set_module('qtools')
 def plotth(*args,**kwargs):
-    
-    xscale = kwargs.get('xscale','lin')
-    show_legend = kwargs.get('legend',False)
+	"""Function for plotting instances of class TimeHistory.
 
-    plt.xlabel('Time [s]')
-    
-    if args[0].ordinate == 'a':
-        plt.ylabel('Acceleration')
-    elif args[0].ordinate == 'v':
-        plt.ylabel('Velocity')
-    elif args[0].ordinate == 'd':
-        plt.ylabel('Displacement')
+	Parameters
+	----------
+	*args
+		Any number of time histories
+	**kwargs
+		Optional parameters (see below under **Other parameters**)
 
-    for th in args:
-        if xscale == 'log':
-            plt.semilogx(th.time,th.data,label=th.label)
-        elif xscale == 'lin':
-            plt.plot(th.time,th.data,label=th.label)  
-    
-    # Set upper limit on x-axis if specified
-    if 'right' in kwargs:
-        if type(kwargs['right']) is float:
-            plt.xlim(right=kwargs['right'])
+	Other parameters
+	----------------
+	legend : bool
+		Display the legend on the plot. Default False.
+	filename : str
+		If given, save plot to file using `filename` as file name. The file
+		name should include the extension .png.
+	dpi : int
+		Dots per inch to use if plot is saved to file. Default 300.
+	right : float
+		Sets the upper limit on the x-axis.
+	left : float
+		Sets the lower limit on the x-axis.
+	top : float
+		Sets the upper limit on the y-axis.
+	bottom : float
+		Sets the lower limit on the y-axis.
 
-    # Set lower limit on x-axis if specified
-    if 'left' in kwargs:
-        if type(kwargs['left']) is float:
-            plt.xlim(left=kwargs['left'])
-            
-    if show_legend:
-        plt.legend(loc='best')
+	Notes
+	-----
+	The line format can be set in the 'fmt' attribute of a response spectrum.
+	The line format is passed directly to matplotlib.pyplot.plot as 'fmt'.
+	"""
+	xscale = kwargs.get('xscale','lin')
+	show_legend = kwargs.get('legend',False)
+	filename = kwargs.get('filename','')
+	dpi = kwargs.get('dpi',300)
 
-    plt.show()
+	plt.xlabel('Time [s]')
+
+	if args[0].ordinate == 'a':
+		plt.ylabel('Acceleration')
+	elif args[0].ordinate == 'v':
+		plt.ylabel('Velocity')
+	elif args[0].ordinate == 'd':
+		plt.ylabel('Displacement')
+
+	for th in args:
+		if xscale == 'log':
+			plt.semilogx(th.time,th.data,th.fmt,label=th.label)
+		elif xscale == 'lin':
+			plt.plot(th.time,th.data,th.fmt,label=th.label)
+
+	# Set upper limit on x-axis if specified
+	if 'right' in kwargs:
+		if type(kwargs['right']) is float:
+			plt.xlim(right=kwargs['right'])
+
+	# Set lower limit on x-axis if specified
+	if 'left' in kwargs:
+		if type(kwargs['left']) is float:
+			plt.xlim(left=kwargs['left'])
+
+	if show_legend:
+		plt.legend(loc='best')
+
+	if len(filename) > 0:
+		plt.savefig(filename,dpi=dpi,format='png')
+
+	plt.show()
