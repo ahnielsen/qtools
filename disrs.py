@@ -1,9 +1,29 @@
-'''
-Direct generation of in-structure response spectra (ISRS).
-The script implements the method proposed by Jiang et al. (2015 paper).
+"""
+Package: Qtools
+Module: disrs
+(C) 2020-2021 Andreas H. Nielsen
+See README.md for further details.
+
+Overview
+--------
+
+DISRS can be executed as a standalone script or as function in the Qtools
+package.
+
+Using the script
+----------------
+
+The script implements the method proposed by Jiang et al. (2015).
 The script estimates the ISRS for a 1-DoF system attached to a N-DoF system.
-The script assumes that the third direction (du = 2) is the vertical direction
-'''
+The script assumes that the third direction (du = 2) is the vertical direction.
+A complete documentation is available as a standalone PDF document
+(EN/NU/TECH/TGN/031).
+
+Calling DISRS as a function
+---------------------------
+
+For function documentation, see below.
+"""
 
 import numpy as np
 from scipy import interpolate
@@ -11,36 +31,37 @@ import matplotlib.pyplot as plt
 from math import sqrt, log10, log, exp, cos, pi
 import time
 from qtools.response_spectrum import ResponseSpectrum
+from qtools import config
 
 if __name__ == '__main__':
-	
+
 	# ------------------------------------------
 	#		   USER DEFINED PARAMETERS
 	# ------------------------------------------
 	# Number of excitation directions to be taken into account (D = 1, 2 or 3)
 	D = 3
-	
+
 	# Define output direction of interest (du = 0, 1, or 2)
 	du = 2
-	
+
 	# Define the desired damping ratio of the ISRS
 	z0 = 0.05
-	
+
 	# Plot spectra?
 	SPLOT = True
-	
+
 	# Specify ground type ('H' for hard, 'S' for soft; only relevant for vertical excitation)
 	GT = 'H'
+
 	# Define corner frequencies
 	fc = (20,40)
-	
+
 	# Lower bound damping value (for avoidance of division by zero in case of zero damping)
 	ZMIN = 0.001
-	
+
 	# Include residual response?
 	INRES = True
-	#INRES = False
-	
+
 	# ------------------------------------------
 	#		END OF USER DEFINED PARAMETERS
 	# ------------------------------------------
@@ -57,7 +78,7 @@ def disrs_main(D,du,z0,fc,GT,ZMIN,INRES,**kwargs):
 	zp = MD[:,1]
 	gam = MD[:,2:(2+D)]
 	phi = MD[:,(2+D+du)]
-	
+
 	# If the SDb parameter is not provided, read spectral input data from file
 	# The size of the input file along the 1st axis (i.e. the number of columns) must be equal to Nzb*D+1
 	# where Nzb = number of damping values used to define each spectrum
@@ -72,7 +93,7 @@ def disrs_main(D,du,z0,fc,GT,ZMIN,INRES,**kwargs):
 	SAb = np.empty((Nfb,Nzb,D))
 	for d in range(D):
 		SAb[:,:,d] = SDb[1:Nfb+1,d*Nzb+1:(d+1)*Nzb+1]
-	
+
 	# Create interpolation functions for spectral accelerations
 	def SAfun(SAi,fi,zi,f,z):
 		# Impose a lower bound on the damping value
@@ -86,7 +107,8 @@ def disrs_main(D,du,z0,fc,GT,ZMIN,INRES,**kwargs):
 		SAo = np.empty(Nf)
 		for i in range(Nf):
 			if Nzi > 1:
-				SAofun = interpolate.interp1d(np.log10(zi),SAiz[i],axis=0,bounds_error=False,fill_value="extrapolate",assume_sorted=True)
+				SAofun = interpolate.interp1d(np.log10(zi), SAiz[i], axis=0,
+								  bounds_error=False, fill_value="extrapolate", assume_sorted=True)
 				if Nz == 1:
 					SAo[i] = SAofun(log10(z))
 				else:
@@ -94,7 +116,7 @@ def disrs_main(D,du,z0,fc,GT,ZMIN,INRES,**kwargs):
 			else:
 				SAo[i] = SAiz[i]
 		return SAo
-	
+
 	# Define the spectral amplification ratio AR = tRS/GRS
 	def AR(f,fc,z,d):
 		# Impose a lower bound on the damping value
@@ -128,9 +150,9 @@ def disrs_main(D,du,z0,fc,GT,ZMIN,INRES,**kwargs):
 			AR = (AR1-1)/2*cos(pi*log10(f/f1)/log10(f2/f1))+(AR1+1)/2
 		else:
 			AR = 1
-			
+
 		return AR
-	
+
 	# Define function to compute the double sum
 	def doublesum(SA,SA0,u,N,f0,fp,fc,z0,zp,d,inres):
 		SS = 0
@@ -197,19 +219,20 @@ def disrs_main(D,du,z0,fc,GT,ZMIN,INRES,**kwargs):
 					  (zj*rj**3*(1-2*rj**2+rj**4+4*z0*zj*rj+4*(zj**2+z0**2)*rj**2+4*z0*zj*rj**3)))
 				rhoij = aij/sqrt(bi*bj)
 				SS += 2*rhoij*Ri*Rj
-	
+
 		return SS
-	
+
 	# Initialise in-structure spectral acceleration array
 	SA_ISRS = np.zeros_like(SAb[:,0,0])
-	
+
 	# Loop over directions
 	for d in range(D):
 		print('Direction {}'.format(d))
 		# Compute spectral accelerations at structural frequencies and damping ratios
 		SAp = SAfun(SAb[:,:,d],fb,zb,fp,zp)
 		# Compute spectral acceleration at the frequency of the secondary system
-		# (note: the effort is unnecessary when z0 equals one of the predefined damping ratios in SpectralData.txt, but for general purpose, we need to to do this)
+		# (note: the effort is unnecessary when z0 equals one of the predefined
+		# damping ratios in SpectralData.txt, but for general purpose, we need to to do this)
 		SA0 = SAfun(SAb[:,:,d],fb,zb,fb,z0)
 		# Compute peak displacements due to excitation in direction d
 		u = gam[:,d]*phi
@@ -218,7 +241,8 @@ def disrs_main(D,du,z0,fc,GT,ZMIN,INRES,**kwargs):
 			# Append the residual modal displacement to the u array
 			ur = 1 - np.sum(u)
 			if ur < 0 or ur >= 1:
-				print('WARNING: with ur = {}, the redidual response is outside the expected range (0 <= ur < 1)'.format(ur))
+				print('WARNING: with ur = {}, the redidual response is outside '
+				  'the expected range (0 <= ur < 1)'.format(ur))
 				print('The residual response is ignored (ur = 0)')
 				ur = 0
 			else:
@@ -228,7 +252,7 @@ def disrs_main(D,du,z0,fc,GT,ZMIN,INRES,**kwargs):
 			SAp_r = np.append(SAp,SAp[-1])
 			fp_r = np.append(fp,200)
 			zp_r = np.append(zp,z0)
-	
+
 		# Loop over frequency range:
 		for i in range(Nfb):
 			# Compute the double sum for direction d and add the result
@@ -237,7 +261,7 @@ def disrs_main(D,du,z0,fc,GT,ZMIN,INRES,**kwargs):
 			else:
 				DS = doublesum(SAp,SA0[i],u,Np,fb[i],fp,fc,z0,zp,d,False)
 			SA_ISRS[i] += DS
-	
+
 	# Complete the SRSS combination and generate response spectrum
 	SA_ISRS = np.sqrt(SA_ISRS)
 	rs = ResponseSpectrum(fb,SA_ISRS,xi=z0)
@@ -245,16 +269,16 @@ def disrs_main(D,du,z0,fc,GT,ZMIN,INRES,**kwargs):
 	return rs
 
 if __name__ == '__main__':
-	
+
 	localtime = time.asctime(time.localtime(time.time()))
 	print('Start of DISRS execution: ',localtime)
 	rs = disrs_main(D,du,z0,fc,GT,ZMIN,INRES)
 	np.savetxt('DISRS_Output_{}.txt'.format(du),np.array([rs.f,rs.sa]).T)
 	localtime = time.asctime(time.localtime(time.time()))
 	print('End of execution: ',localtime)
-	
+
 	# Plot the in-structure spectra
-	if SPLOT:	 
+	if SPLOT:
 		# Initialise figure
 		plt.figure()
 		plt.grid(b=True)
@@ -264,46 +288,59 @@ if __name__ == '__main__':
 		plt.xlim((0.1,100))
 		plt.show()
 
-def disrs(rslist,mdlist,du,z0,fc,GT='H',ZMIN=0.001,INRES=True):
-	'''Compute an in-structure response spectrum (ISRS) using a direct spectrum-to-spectrum method.
-	
+@config.set_module('qtools')
+def disrs(rslist, mdlist, du, z0, fc, GT='H', ZMIN=0.001, INRES=True):
+	"""Compute an in-structure response spectrum (ISRS) using a direct
+	spectrum-to-spectrum method.
+
 	Parameters
 	----------
 	rslist : a list of lists of response spectra
 		Input spectra for ISRS computation.
-		The length of rslist determine the number of directions to be taken into account (D <= 3).
+		The length of rslist determines the number of directions to be taken
+		into account (D = len(rslist) <= 3).
 		The length of rslist[0] determines the number of damping values (Nzb).
 		If rslist[1] is provided, then len(rslist[1]) must equal len(rslist[0]).
 		If rslist[2] is provided, then len(rslist[2]) must equal len(rslist[0]).
-	mdlist : a list of Numpy arrays.
-		Where:
-			
-			* mdlist[0] is a 1D array with natural frequencies (Np = len(mdlist[0]));
-			* mdlist[1] is a 1D array with damping ratios;
-			* mdlist[2] is a 2D array with participation factors (the shape of this array must be (Np,D) or just (Np,) if D = 1);
-			* mdlist[3] is a 2D array with modal displacements (the shape of this array must be (Np,D) or just (Np,) if D = 1).
-	
-	du : int
-		Direction of in-structure response. ``[0|1|2]``
+	mdlist : a list of NumPy arrays.
+		This parameter contains the modal properties of the primary system,
+		where:
+
+		* mdlist[0] is a 1D array with natural frequencies (Np = len(mdlist[0]));
+		* mdlist[1] is a 1D array with modal damping ratios;
+		* mdlist[2] is a 2D array with participation factors
+		  (the shape of this array must be (Np,D) or just (Np,) if D = 1);
+		* mdlist[3] is a 2D array with modal displacements (the shape of this
+		  array must be (Np,D) or just (Np,) if D = 1).
+
+	du : {0, 1, 2}
+		Direction of in-structure response.
 	z0 : float
 		Damping value of the secondary system.
 	fc : tuple of floats
-		Corner frequencies. See DISRS documentation.
+		Corner frequencies. See the complete DISRS documentation,
+		EN/NU/TECH/TGN/031.
 	GT : str
-		Ground type ('H' for hard, 'S' for soft). Only relevant for vertical excitation.
+		Ground type ('H' for hard, 'S' for soft). Only relevant for vertical
+		excitation.
 	ZMIN : float
 		Lower bound damping value of the primary system.
 		Useful if some primary modes have zero or unrealistically low damping.
 		Default 0.001.
-	INRES : boolean
+	INRES : bool
 		Include residual response in the computation. Default ``True``.
 		See DISRS documentation for further information.
-	
+
 	Returns
 	-------
 	rs : an instance of class ResponseSpectrum
-		The in-structure response spectrum for response in direction ``du``.
-	'''
+		The in-structure response spectrum for response in direction `du`.
+
+	Notes
+	-----
+	The complete documentation for this function is available as a PDF document:
+	EN/NU/TECH/TGN/031, Direct Generation of In-Structure Response Spectra.
+	"""
 	D = len(rslist)
 	Nzb = len(rslist[0])
 	Nf = len(rslist[0][0].f)

@@ -1,9 +1,16 @@
+"""
+Package: Qtools
+Module: config
+(C) 2020-2021 Andreas H. Nielsen
+See README.md for further details.
+"""
+
 #from scipy.interpolate import interp1d as si1d
 #import numpy as np
 #from math import nan
 
 # Configuration parameters
-version = '0.2'
+version = '1.1'
 verbose = True
 
 # Define function that will print output if verbose
@@ -25,7 +32,7 @@ def set_module(module):
 		if module is not None:
 			func.__module__ = module
 			return func
-	
+
 	return decorator
 
 # Define a class that is a subclass of scipy.interpolate.interp1d

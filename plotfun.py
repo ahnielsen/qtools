@@ -1,7 +1,8 @@
 """
-Module qtools.plotfun
-
-Contains functions for plotting.
+Package: Qtools
+Module: plotfun
+(C) 2020-2021 Andreas H. Nielsen
+See README.md for further details.
 """
 
 import matplotlib.pyplot as plt
@@ -32,9 +33,11 @@ def plotrs(*args,**kwargs):
 		Display the legend on the plot. Default False.
 	filename : str
 		If given, save plot to file using `filename` as file name. The file
-		name should include the extension .png.
+		name should include the desired extension (e.g. 'png' or 'svg'), from
+		which the file format will be determined as per
+		:func:`matplotlib.pyplot.savefig`.
 	dpi : int
-		Dots per inch to use if save_fig is ``True``. Default 300.
+		Dots per inch to use if saving plot to file. Default None.
 	right : float
 		Sets the upper limit on the x-axis.
 	left : float
@@ -47,7 +50,8 @@ def plotrs(*args,**kwargs):
 	Notes
 	-----
 	The line format can be set in the 'fmt' attribute of a response spectrum.
-	The line format is passed directly to matplotlib.pyplot.plot as 'fmt'.
+	The line format is passed directly to :func:`matplotlib.pyplot.plot` as
+	'fmt'.
 
 	Examples
 	--------
@@ -67,7 +71,7 @@ def plotrs(*args,**kwargs):
 	xscale = kwargs.get('xscale','log')
 	show_legend = kwargs.get('legend',False)
 	filename = kwargs.get('filename','')
-	dpi = kwargs.get('dpi',300)
+	dpi = kwargs.get('dpi',None)
 
 	# Set the appropriate type of plot
 	if xscale == 'log':
@@ -96,7 +100,10 @@ def plotrs(*args,**kwargs):
 	for rs in args:
 		x = rs.__dict__[xaxis]
 		y = rs.__dict__[yaxis]
-		plot(x,y,rs.fmt,label=rs.label)
+		if rs.color == '':
+			plot(x, y, rs.fmt, label=rs.label)
+		else:
+			plot(x, y, rs.fmt, label=rs.label, color=rs.color)
 
 	# Set upper limit on x-axis if specified
 	if 'right' in kwargs:
@@ -120,7 +127,7 @@ def plotrs(*args,**kwargs):
 	plt.grid(color='0.75')
 
 	if len(filename) > 0:
-		plt.savefig(filename,dpi=dpi,format='png')
+		plt.savefig(filename, dpi=dpi)
 
 	plt.show()
 
@@ -148,9 +155,11 @@ def plotps(*args,**kwargs):
 		Display the legend on the plot. Default False.
 	filename : str
 		If given, save plot to file using `filename` as file name. The file
-		name should include the extension .png.
+		name should include the desired extension (e.g. 'png' or 'svg'), from
+		which the file format will be determined as per
+		:func:`matplotlib.pyplot.savefig`.
 	dpi : int
-		Dots per inch to use if plot is saved to file. Default 300.
+		Dots per inch to use if plot is saved to file. Default None.
 
 	Examples
 	--------
@@ -162,7 +171,7 @@ def plotps(*args,**kwargs):
 	xscale = kwargs.get('xscale','lin')
 	show_legend = kwargs.get('legend',False)
 	filename = kwargs.get('filename','')
-	dpi = kwargs.get('dpi',300)
+	dpi = kwargs.get('dpi',None)
 
 	# Set the appropriate type of plot
 	if xscale == 'log':
@@ -189,12 +198,12 @@ def plotps(*args,**kwargs):
 	else:
 		raise ValueError('{} is not a valid value for the x-axis on a power spectrum plot'.format(xaxis))
 	if yaxis == 'X':
-		plt.ylabel('Fourier amplitude [{}]'.format(args[0].unit['X']))
-		if len(set([ps.unit['X'] for ps in args])) > 1:
+		plt.ylabel('Fourier amplitude [{}]'.format(args[0].unit))
+		if len(set([ps.unit for ps in args])) > 1:
 			config.vprint('WARNING: in plotps, it is assumed that all spectra have the same units.')
 	elif yaxis == 'Wf' or yaxis == 'Sk' or yaxis == 'Sw':
-		plt.ylabel('Spectral power density [{}]'.format(args[0].unit['S']))
-		if len(set([ps.unit['S'] for ps in args])) > 1:
+		plt.ylabel('Spectral power density [{}]'.format(args[0].unit))
+		if len(set([ps.unit for ps in args])) > 1:
 			config.vprint('WARNING: in plotps, it is assumed that all spectra have the same units.')
 	else:
 		raise ValueError('{} is not a valid value for the y-axis on a response spectrum plot'.format(yaxis))
@@ -228,7 +237,7 @@ def plotps(*args,**kwargs):
 		plt.legend(loc='best')
 
 	if len(filename) > 0:
-		plt.savefig(filename,dpi=dpi,format='png')
+		plt.savefig(filename,dpi=dpi)
 
 	plt.show()
 
@@ -249,9 +258,11 @@ def plotth(*args,**kwargs):
 		Display the legend on the plot. Default False.
 	filename : str
 		If given, save plot to file using `filename` as file name. The file
-		name should include the extension .png.
+		name should include the desired extension (e.g. 'png' or 'svg'), from
+		which the file format will be determined as per
+		:func:`matplotlib.pyplot.savefig`.
 	dpi : int
-		Dots per inch to use if plot is saved to file. Default 300.
+		Dots per inch to use if plot is saved to file. Default None.
 	right : float
 		Sets the upper limit on the x-axis.
 	left : float
@@ -264,12 +275,13 @@ def plotth(*args,**kwargs):
 	Notes
 	-----
 	The line format can be set in the 'fmt' attribute of a response spectrum.
-	The line format is passed directly to matplotlib.pyplot.plot as 'fmt'.
+	The line format is passed directly to :func:`matplotlib.pyplot.plot` as
+	'fmt'.
 	"""
 	xscale = kwargs.get('xscale','lin')
 	show_legend = kwargs.get('legend',False)
 	filename = kwargs.get('filename','')
-	dpi = kwargs.get('dpi',300)
+	dpi = kwargs.get('dpi',None)
 
 	plt.xlabel('Time [s]')
 
@@ -300,6 +312,6 @@ def plotth(*args,**kwargs):
 		plt.legend(loc='best')
 
 	if len(filename) > 0:
-		plt.savefig(filename,dpi=dpi,format='png')
+		plt.savefig(filename,dpi=dpi)
 
 	plt.show()

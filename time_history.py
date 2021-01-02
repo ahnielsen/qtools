@@ -1,11 +1,13 @@
 """
-Module qtools.time_history
-Author: Andreas H Nielsen
+Package: Qtools
+Module: time_history
+(C) 2020-2021 Andreas H. Nielsen
+See README.md for further details.
 """
 
 import numpy as np
 from scipy.integrate import cumtrapz, trapz
-from math import pi, ceil, sqrt
+from math import pi, ceil, sqrt, isclose
 from qtools import config
 from pathlib import Path
 
@@ -73,8 +75,6 @@ class TimeHistory:
 
 		th = qt.readth('filename.txt',factor=9.81)
 
-	Differentiation has yet to be implemented.
-
 	Each instance of TimeHistory is iterable. For example, the following
 	statement loops over all time-ordinate pairs in time history `th`::
 
@@ -91,7 +91,7 @@ class TimeHistory:
 	define a new time history with shorter time steps: to this end, use the
 	class method :meth:`interpft`.
 	"""
-	def __init__(self,time,data,ordinate='a',fmt=''):
+	def __init__(self, time, data, ordinate='a', fmt=''):
 
 		if len(time) != len(data):
 			raise IndexError('The lengths of time and data must be the same.')
@@ -170,7 +170,7 @@ class TimeHistory:
 		a = np.transpose(np.array([self.time, self.data]))
 		np.savetxt(filename,a,fmt=fmt)
 
-	def interpft(self,k):
+	def interpft(self, k):
 		"""Interpolate the time history via a discrete Fourier transform of the
 		data points in the time history. The result is a time history with
 		a time step ``self.dt = self.dt/k``.
@@ -218,12 +218,16 @@ class TimeHistory:
 			cn = 1/n*np.fft.rfft(self.data)
 			self.data = np.fft.irfft(m*cn, m)[0:(n-1)*k+1]
 			t0 = self.time[0]; Td = self.Td
-			self.time, self.dt = np.linspace(t0,t0+Td,(n-1)*k+1,retstep=True)
+			self.time, self.dt = np.linspace(t0,t0+Td, (n-1)*k+1, retstep=True)
 			self.ndat = (n-1)*k+1
 			self.k = 0
 			self.fNyq = 1/(2*self.dt)
+			config.vprint('Interpolating time history {}.'.format(self.label))
+			config.vprint('The new time history has {} data points and a time '
+				 'step of {} sec.'.format(self.ndat,self.dt))
+			config.vprint('------------------------------------------')
 		else:
-			config.vprint('Warning: calling interpft() on a time history with '
+			config.vprint('WARNING: calling interpft() on a time history with '
 				 'variable time step has no effect.')
 
 	def smd(self, f0=0.05, f1=0.75):
@@ -249,8 +253,8 @@ class TimeHistory:
 		"""
 		if self.ordinate != 'a':
 			config.vprint('WARNING: class method smd() is intended for acceleration time histories')
-		Ea = cumtrapz(self.data**2,self.time,initial=0)
-		t0,t1 = np.interp([f0*Ea[-1],f1*Ea[-1]],Ea,self.time)
+		Ea = cumtrapz(self.data**2, self.time, initial=0)
+		t0,t1 = np.interp([f0*Ea[-1], f1*Ea[-1]], Ea, self.time)
 		smd = t1-t0
 		return (smd,t0,t1)
 
@@ -268,24 +272,88 @@ class TimeHistory:
 		"""
 		return sqrt(trapz(self.data**2,self.time)/self.Td)
 
-	def integrate(self):
-		"""Integrate the time history with respect to time."""
+	def integrate(self, v=False):
+		"""Integrate the time history with respect to time. Set ``v = True``
+		for verbose confirmations."""
 
+		self.data = cumtrapz(self.data, self.time, initial=0)
 		if self.ordinate=='d':
-			config.vprint('WARNING: you are integrating a displacement time history.')
+			config.vprint('WARNING: you are integrating a displacement time '
+				 'history.')
 			self.ordinate = 'n/a'
 		elif self.ordinate=='v':
-			config.vprint('The time history has been integrated and now represents displacement.')
+			if v: config.vprint('Time history {} has been integrated and now '
+					   'represents displacement.'.format(self.label))
 			self.ordinate = 'd'
 		elif self.ordinate=='a':
-			config.vprint('The time history has been integrated and now represents velocity.')
+			if v: config.vprint('Time history {} has been integrated and now '
+					   'represents velocity.'.format(self.label))
 			self.ordinate = 'v'
 
-		self.data = cumtrapz(self.data,self.time,initial=0)
+		return self
+
+	def differentiate(self, v=False):
+		"""Differentiate the time history with respect to time.
+		This function uses :func:`numpy.gradient()` to perform the operation.
+		Set ``v = True`` for verbose confirmations."""
+
+		if v: config.vprint('WARNING: differentiating a time history can '
+				'degrade the information contained in the signal and lead to '
+				'inaccurate results.')
+		if self.dt_fixed:
+			self.data = np.gradient(self.data, self.dt)
+		else:
+			self.data = np.gradient(self.data, self.time)
+		if self.ordinate=='d':
+			if v: config.vprint('Time history {} has been differentiated and '
+					   'now represents velocity.'.format(self.label))
+			self.ordinate = 'v'
+		elif self.ordinate=='v':
+			if v: config.vprint('Time history {} has been differentiated and '
+					   'now represents acceleration.'.format(self.label))
+			self.ordinate = 'a'
+		elif self.ordinate=='a':
+			config.vprint('WARNING: you are differentiating an acceleration '
+				 'time history.')
+			self.ordinate = 'n/a'
+
+		return self
 
 	def zero_mean(self):
 		"""Ensure that the time history has zero mean."""
 		self.data -= np.mean(self.data)
+
+		return self
+
+@config.set_module('qtools')
+class TimeHistorySet:
+
+	def __init__(self, *ths, label='None'):
+
+		# Check input
+		if len(ths) < 2 or len(ths) > 3:
+			raise ValueError('A time history set must comprise 2 or 3 time histories.')
+		for th in ths[1:]:
+			assert ths[0].ndat == th.ndat, 'The number of data point in each ' \
+				'time history must be equal.'
+			assert isclose(ths[0].dt,th.dt), 'The time step of each time '\
+				'history must be equal.'
+			assert ths[0].dt_fixed and th.dt_fixed, 'All time histories in a '\
+				'set must be defined with either fixed or variable time step.'
+
+		self.Nth = len(ths)
+		self.ths = ths
+		self.label = label
+
+	def __setitem__(self,index,value):
+		if index < 0 or index > 2:
+			raise IndexError('Index {} is out of range for a time history set.'.format(index))
+		self.ths[index] = value
+
+	def __getitem__(self,index):
+		if index < 0 or index > 2:
+			raise IndexError('Index {} is out of range for a time history set.'.format(index))
+		return self.ths[index]
 
 @config.set_module('qtools')
 def harmonic(dt, f=1.0, Td=None, A=1.0, ordinate='a'):
@@ -434,7 +502,7 @@ def loadth(sfile, ordinate='a', dt=-1.0, factor=1.0, delimiter=None,
 	if dt_fixed:
 		# Constant time step - the input file contains just ordinates
 		fNyq = 1/(2*dt)
-		time = np.linspace(0.0,dt*(ndat-1),num=ndat)
+		time = np.linspace(0, dt*(ndat-1), num=ndat)
 		data = np.reshape(rawdata,ndat)
 	else:
 		# The input file is defined as pairs of (time, data)
@@ -465,7 +533,7 @@ def loadth(sfile, ordinate='a', dt=-1.0, factor=1.0, delimiter=None,
 
 	# Create instance of TimeHistory
 	th = TimeHistory(time,data,ordinate)
-	th.setdt(dt,dt_fixed,fNyq)
+	th.setdt(dt,dt_fixed,round(fNyq,2))
 
 	# Set label (removing the file path and the extension, if any)
 	th.setLabel(Path(sfile).stem)
@@ -473,20 +541,24 @@ def loadth(sfile, ordinate='a', dt=-1.0, factor=1.0, delimiter=None,
 	# Output information
 	config.vprint('Time history successfully read from file {}.'.format(sfile))
 	if th.dt_fixed:
-		config.vprint('Constant time step =',th.dt,'seconds will be used.')
+		config.vprint('Constant time step = {:6.4f} seconds will be used.'.format(th.dt))
 	else:
 		config.vprint('Variable time step will be used.')
-	config.vprint('The duration is {:6.2f} seconds.'.format(th.Td))
-	config.vprint('The estimated Nyquist frequency of the time history is {:6.2f} Hz.'.format(th.fNyq))
+	config.vprint('The duration is {:5.2f} seconds.'.format(th.Td))
+	config.vprint('The estimated Nyquist frequency of the time history is {:5.1f} Hz.'.format(th.fNyq))
+	if th.fNyq < 100.0:
+		config.vprint('It is recommended to interpolate the time history using '
+				'method interpft(k) with k >= {} for accuracy up to 100 Hz, '
+				'depending on the frequency contents of the time history.'.format(ceil(100/th.fNyq)))
 	config.vprint('There are',th.ndat,'points in the time history.')
 	if ordinate == 'a':
-		config.vprint('The PGA is {:6.2f} m/s**2.'.format(th.pga))
+		config.vprint('The PGA is {:4.2f} g.'.format(th.pga/9.81))
 	config.vprint('------------------------------------------')
 
 	return th
 
 @config.set_module('qtools')
-def arrayth(data, time=None, dt=-1.0, ordinate='a',fmt=''):
+def arrayth(data, time=None, dt=-1.0, ordinate='a', fmt=''):
 	"""
 	Create a time history from an array.
 
@@ -559,4 +631,29 @@ def arrayth(data, time=None, dt=-1.0, ordinate='a',fmt=''):
 
 	th.setdt(dt,dt_fixed,fNyq)
 
+	return th
+
+@config.set_module('qtools')
+def calcth(fs, ordinate='a'):
+	"""Calculate a time history from a Fourier spectrum.
+
+	Parameters
+	----------
+	fs : an instance of class FourierSpectrum
+		The input spectrum.
+	ordinate : {'d', 'v', 'a'}, optional
+		The physical quantity contained in data, with 'd' = displacement,
+		'v' = velocity and 'a' = acceleration.
+
+	Returns
+	-------
+	th : an instance of class TimeHistory
+	"""
+
+	# Perform inverse FFT
+	ndat = fs.N-fs.L
+	x = np.fft.irfft(fs.N*fs.X, n=fs.N)[:ndat]
+	t = np.linspace(0, fs.dt*(ndat-1), ndat)
+
+	th = TimeHistory(t, x, ordinate=ordinate)
 	return th

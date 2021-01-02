@@ -1,9 +1,17 @@
+"""
+Package: Qtools
+Module: response_spectrum
+(C) 2020-2021 Andreas H. Nielsen
+See README.md for further details.
+"""
+
 import numpy as np
+import matplotlib as mpl
 import copy
 import functools
 import multiprocessing
 from itertools import combinations, permutations
-from scipy.integrate import odeint, trapz
+from scipy.integrate import odeint
 from scipy import interpolate
 from math import exp, log, log10, pi, sqrt, floor, sin, cos, isclose
 from pathlib import Path
@@ -13,12 +21,12 @@ try:
 	from .dlls import auxforsubs
 except ModuleNotFoundError:
 	config.vprint('WARNING: module auxforsubs not found. '
-			   'Qtools will use the slower Python solver for ODE integration ')
+			   'Qtools will use the slower Python solver for ODE integration.')
 	USE_FORTRAN_SUBS = False
 except ImportError:
 	config.vprint('WARNING: ImportError occured when attempting to import '
 			   'module auxforsubs. '
-			   'Qtools will use the slower Python solver for ODE integration ')
+			   'Qtools will use the slower Python solver for ODE integration.')
 	USE_FORTRAN_SUBS = False
 else:
 	USE_FORTRAN_SUBS = True
@@ -35,10 +43,6 @@ class ResponseSpectrum:
 	y : 1D NumPy array
 		Spectral ordinates (acceleration, velocity or displacement). This must
 		have same length as `x`.
-	z : 1D NumPy array, optional
-		Input energy per unit mass. This must have same length as `x`. Note, if
-		`z` is not specified, the input energy (`ei`) will be an array filled
-		with zeros.
 	abscissa : {'f', 'T'}, optional
 		Specify quantity contained in x, with 'f' = frequency and 'T' = period.
 		Default 'f'.
@@ -61,12 +65,10 @@ class ResponseSpectrum:
 		the `fmt` parameter in `Matplotlib documentation
 		<https://matplotlib.org/api/_as_gen/matplotlib.pyplot.plot.html>`_.
 		With the default value, ``fmt = ''`` (an empty string), the spectrum
-		will be plotted with the default matplotlib.pyplot line styles.
+		will be plotted with the default :mod:`matplotlib.pyplot` line styles.
 
 	Attributes
 	----------
-	ei : 1D NumPy array
-		Input energy per unit mass in units of J/kg.
 	f : 1D NumPy array
 		Frequency in units of Hz (1/s).
 	fmt : str
@@ -76,8 +78,7 @@ class ResponseSpectrum:
 	label : str
 		See above under Parameters.
 	ndat : integer
-		Number of elements in `sa`, `sv`, `sd`, `T`, and `f` (and `ei` if
-		initialised).
+		Number of elements in `sa`, `sv`, `sd`, `T`, and `f`.
 	sa : 1D NumPy array
 		Spectral acceleration in units of g.
 	sd : 1D NumPy array
@@ -94,8 +95,8 @@ class ResponseSpectrum:
 	The following conventions for units are followed:
 
 	* Each instance of ResponseSpectrum is defined in terms of standard units.
-	* The standard spatial dimension is metres.
-	* The standard time dimension is seconds.
+	* The standard spatial unit is metres.
+	* The standard time unit is seconds.
 	* The standard unit for spectral acceleration is g
 	  (with g = 9.81 |m/s2|).
 	* Other units are not supported, but may be used at the discretion of the
@@ -110,28 +111,18 @@ class ResponseSpectrum:
 
 	"""
 
-	def __init__(self, x, y, z=None, abscissa='f', ordinate='sag', xi=0.05,
+	def __init__(self, x, y, abscissa='f', ordinate='sag', xi=0.05,
 			  label='_nolegend_', fmt=''):
 
 		# Check the supplied arguments
 		if type(x) != np.ndarray or type(y) != np.ndarray:
-			raise TypeError('In class ResponseSpectrum, x and y must be 1D NumPy arrays.')
+			raise TypeError('The two arguments x and y must be 1D NumPy arrays.')
 		if len(x) != len(y):
-			raise ValueError('In class ResponseSpectrum, x and y, which must '
+			raise ValueError('The two arguments x and y, which must '
 					'have the same length, have lengths {} and {}'.format(len(x),len(y)))
-		if type(z) == type(None):
-			self.ei = np.zeros_like(x)
-		elif type(z) == np.ndarray:
-			if len(x) != len(z):
-				raise ValueError('In class ResponseSpectrum, x and z, which must '
-					 'have the same length, have lengths {} and {}'.format(len(x),len(z)))
-			else:
-				self.ei = z
-		else:
-			raise TypeError('In class ResponseSpectrum, z must be a 1D NumPy array or None.')
 		if min(np.diff(x)) <= 0:
-			raise ValueError('In class ResponseSpectrum, x must be an array of '
-					'monotonically increasing values.')
+			raise ValueError('The argument x must be an array of monotonically '
+					'increasing values.')
 
 		if abscissa == 'f':
 			self.f = x
@@ -163,6 +154,8 @@ class ResponseSpectrum:
 			self.sd = y
 			self.sv = omega*self.sd
 			self.sa = omega*self.sv/self.g
+		elif ordinate == 'ei':
+			self.sa = y
 		else:
 			raise ValueError('In class ResponseSpectrum, the ordinate must be sag, sa, sv, or sd.')
 
@@ -171,6 +164,40 @@ class ResponseSpectrum:
 		self.k = 0
 		self.label = label
 		self.fmt = fmt
+		self.linestyle = ''
+		self.color = ''
+
+	def __call__(self, f, kind = 'loglog'):
+		"""
+		Evaluate a response spectrum at a particular frequency. Extrapolations
+		are allowed.
+
+		Parameters
+		----------
+		f : float
+			Frequency at which to evaluate the response spectrum.
+		kind : str, optional
+			Manner of interpolation. The default is 'loglog'. See
+			:meth:`interp` for further information.
+
+		Returns
+		-------
+		sa : float
+			The spectral acceleration at frequency `f`.
+
+		"""
+		if kind == 'linlin':
+			sa = np.interp(f,self.f,self.sa)
+		elif kind == 'loglin':
+			sa = np.interp(log(f),np.log(self.f),self.sa)
+		elif kind == 'loglog':
+			sa = exp(np.interp(log(f),np.log(self.f),np.log(self.sa)))
+		elif kind == 'linlog':
+			sa = exp(np.interp(f,self.f,np.log(self.sa)))
+		else:
+			raise ValueError('You cannot evaluate a response spectrum with '
+					' kind = {}.'.format(kind))
+		return sa
 
 	def __iter__(self):
 		return self
@@ -188,19 +215,19 @@ class ResponseSpectrum:
 	def __str__(self):
 		return self.label
 
-	def __mul__(self,other):
-		if (type(other) == float or type(other) == int):
+	def __mul__(self,factor):
+		if (type(factor) == float or type(factor) == int):
 			product = copy.deepcopy(self)
-			product.sa *= other
-			product.sv *= other
-			product.sd *= other
-			product.ei *= other
+			product.sa *= factor
+			if type(self) is ResponseSpectrum:
+				product.sv *= factor
+				product.sd *= factor
 			return product
 		else:
 			return NotImplemented
 
-	def __rmul__(self,other):
-		return self.__mul__(other)
+	def __rmul__(self,factor):
+		return self.__mul__(factor)
 
 	def _invert(self,a):
 		if isclose(a[0],0):
@@ -212,12 +239,16 @@ class ResponseSpectrum:
 		return b
 
 	def setLabel(self,label):
-		"""Sets the label of the response spectrum."""
+		"""Sets the label of the spectrum."""
 		self.label = str(label)
 
-	def setLineFormat(self, fmt):
-		"""Sets the `fmt` attribute equal to the supplied argument."""
-		self.fmt = str(fmt)
+	def setLineFormat(self, fmt, color=''):
+		"""Sets the `fmt` attribute equal to the supplied argument. Optionally,
+		define the colour of the line."""
+
+		self.fmt = fmt
+		if mpl.colors.is_color_like(color):
+			self.color = color
 
 	def savers(self, fname, abscissa='f', ordinate='sag', fmt='%.18e',
 			   delimiter=' ', newline='\n', header='_default_', footer='',
@@ -262,10 +293,10 @@ class ResponseSpectrum:
 			head2 = 'Damping level = {}'.format(self.xi)
 			header = head1+head2
 
-		if abscissa=='f' and ordinate[0:2]=='sa':
+		if abscissa=='f' and ordinate[0:2]=='sa' or ordinate=='ei':
 			out = np.array([self.f,self.sa])
 
-		elif abscissa=='T' and ordinate[0:2]=='sa':
+		elif abscissa=='T' and ordinate[0:2]=='sa' or ordinate=='ei':
 			out = np.array([self.T[::-1],self.sa[::-1]])
 
 		elif abscissa=='f' and ordinate=='sv':
@@ -280,19 +311,13 @@ class ResponseSpectrum:
 		elif abscissa=='T' and ordinate=='sd':
 			out = np.array([self.T[::-1],self.sd[::-1]])
 
-		elif abscissa=='f' and ordinate=='ei':
-			out = np.array([self.f,self.ei])
-
-		elif abscissa=='T' and ordinate=='ei':
-			out = np.array([self.T[::-1],self.ei[::-1]])
-
 		elif abscissa=='f' and ordinate=='all':
-			out = np.array([self.f,self.sa,self.sv,self.sd,self.ei])
-			header += '\nFreq, SA, SV, SD, EI'
+			out = np.array([self.f,self.sa,self.sv,self.sd])
+			header += '\nFreq, SA, SV, SD'
 
 		elif abscissa=='T' and ordinate=='all':
-			out = np.array([self.T[::-1],self.sa[::-1],self.sv[::-1],self.sd[::-1],self.ei[::-1]])
-			header += '\nPeriod, SA, SV, SD, EI'
+			out = np.array([self.T[::-1],self.sa[::-1],self.sv[::-1],self.sd[::-1]])
+			header += '\nPeriod, SA, SV, SD'
 
 		else:
 			config.vprint('WARNING: could not recognise the parameters abscissa '
@@ -304,10 +329,10 @@ class ResponseSpectrum:
 					   header=header,footer=footer,comments=comments)
 
 	def interp(self, fn, kind = 'loglin', merge=True, eps=0.001,
-			sd_extrapolate=True):
+			sd_extrapolate=True, mutate=True):
 		"""
-		Interpolate a spectrum at the frequencies given as the first argument
-		to the function.
+		Interpolate a response spectrum at the frequencies given as the first
+		argument to the function.
 
 		Parameters
 		----------
@@ -316,10 +341,12 @@ class ResponseSpectrum:
 			frequencies)
 		kind : str, optional
 			Type of interpolation. The following options are supported:
-				* 'linlin' - linear x- and y-axis.
-				* 'loglin' - logarithmic x-axis, linear y-axis (default).
-				* 'loglog' - logarithmic x- and y-axis.
-				* 'linlog' - linear x-axis, logarithmic y-axis.
+
+			* 'linlin' - linear x- and y-axis.
+			* 'loglin' - logarithmic x-axis, linear y-axis (default).
+			* 'loglog' - logarithmic x- and y-axis.
+			* 'linlog' - linear x-axis, logarithmic y-axis.
+
 		merge : bool, optional
 			Set `merge=True` to merge the new frequencies with the existing
 			frequencies of the spectrum.
@@ -327,26 +354,35 @@ class ResponseSpectrum:
 			new frequencies.
 		eps : float, optional
 			If frequencies are merged, duplicate frequencies defined as
-			frequencies that satisfy ``log10(f2/f1) < eps`` are combined into
-			one average frequency. The default value of `eps` is 0.001.
+			frequencies that satisfy ``(f2-f1)/f2 < eps`` are combined into
+			one average frequency. The default value of `eps` is 0.001. The
+			average value is then rounded to `n` number of digits
+			with `n` computed as ``round(log10(1000/(eps*f2)))``.
 		sd_extrapolate : bool, optional
 			Manner of extrapolation for ``f < self.f[0]`` (see implementation
 			notes below). Default `True`.
+		mutate : bool
+			If True, replace the original data in the response spectrum with
+			new interpolated values. If False, keep original values.
+
+		Returns
+		-------
+		sa : 1D NumPy array
+			The interpolated spectral accelerations.
 
 		Notes
 		-----
-		Spectral accelerations are interpolated on a linear / logarithmic
-		frequency scale depending on the value of `kind`.
+		Spectral accelerations are interpolated in a lin-lin, log-lin, lin-log,
+		or log-log co-ordinate system depending on the value of `kind`.
 		The method will extrapolate for ``f < self.f[0]`` (where ``self.f``
 		refers to the frequency array of the response spectrum being operated
 		on) and for ``f > self.f[-1]``.
 		It is assumed that the spectral acceleration is	constant for
 		``f > self.f[-1]``.
-		If ``sd_extrapolate is True``, then it is assumed that the spectral
+		If `sd_extrapolate` is True, then it is assumed that the spectral
 		displacement is constant for ``f < self.f[0]``.
-		If ``sd_extrapolate is False``, then it is assumed that the
+		If `sd_extrapolate` is False, then it is assumed that the
 		spectral acceleration is constant for ``f < self.f[0]``.
-		The input energy is assumed constant in all cases of extrapolation.
 		"""
 		if merge:
 			fn = np.sort(np.append(self.f,fn))
@@ -355,25 +391,21 @@ class ResponseSpectrum:
 			ft[0] = fn[0]
 			j = 0
 			for i in range(1,np.size(fn)):
-				if log10(fn[i]/ft[j]) < eps:
-					ft[j] = sqrt(fn[i]*ft[j])
+				if (fn[i]-ft[j])/fn[i] < eps:
+					ft[j] = round(sqrt(fn[i]*ft[j]),round(log10(1000/(eps*fn[i]))))
 				else:
 					ft[j+1] = fn[i]
 					j += 1
 			fn = ft[0:j+1]
-		interp_ei = not np.equal(self.ei,0).any()
+
 		if kind == 'linlin':
 			sa = np.interp(fn,self.f,self.sa)
-			if interp_ei: ei = np.interp(fn,self.f,self.ei)
 		elif kind == 'loglin':
 			sa = np.interp(np.log(fn),np.log(self.f),self.sa)
-			if interp_ei: ei = np.interp(np.log(fn),np.log(self.f),self.ei)
 		elif kind == 'loglog':
 			sa = np.exp(np.interp(np.log(fn),np.log(self.f),np.log(self.sa)))
-			if interp_ei: ei = np.exp(np.interp(np.log(fn),np.log(self.f),np.log(self.ei)))
 		elif kind == 'linlog':
 			sa = np.exp(np.interp(fn,self.f,np.log(self.sa)))
-			if interp_ei: ei = np.exp(np.interp(np.log(fn),np.log(self.f),np.log(self.ei)))
 		else:
 			raise ValueError('In class method interp, kind = {} is not supported'.format(kind))
 
@@ -383,38 +415,108 @@ class ResponseSpectrum:
 					sa[i] = self.sd[0]*(2*pi*fn[i])**2/self.g
 				else:
 					break
-		self.f = fn
-		self.T = self._invert(self.f)
-		omega = 2*pi*self.f
-		self.sa = sa
-		self.sv = self.g*self.sa/omega
-		self.sd = self.sv/omega
-		if interp_ei: self.ei = ei
-		self.ndat = len(sa)
-		self.k = 0
+
+		if mutate:
+			self.f = fn
+			self.T = self._invert(self.f)
+			omega = 2*pi*self.f
+			self.sa = sa
+			if type(self) is ResponseSpectrum:
+				self.sv = self.g*self.sa/omega
+				self.sd = self.sv/omega
+			self.ndat = len(sa)
+			self.k = 0
+
+		return sa
 
 @config.set_module('qtools')
-def envelope(rs1, rs2, option=0, kind='loglin', sd_extrapolate=True):
+def meanrs(rslist, kind='loglin', sd_extrapolate=True):
 	"""
-	Compute the envelope of two spectra.
+	Compute the mean of two or more response spectra.
 
 	Parameters
 	----------
-	rs1 : an instance of ResponseSpectrum
-		First spectrum for the enveloping operation.
-	rs2 : an instance of ResponseSpectrum
-		Second spectrum for the enveloping operation.
+	rslist : list or tuple
+		A sequence containing two or more instances of ResponseSpectrum.
+	kind : str, optional
+		If the response spectrum supplied in `rslist` have different frequency
+		values, interpolation will be used to determine spectral accelerations
+		based on a common set of frequencies. The `kind` parameter determines
+		the interpolation procedure. See the :meth:`.interp` method for more
+		information.
+	sd_extrapolate : bool, optional
+		Manner of extrapolation for :math:`f < f_{min}` where :math:`f_{min}`
+		is the minimum frequency in a frequency array (whichever requires
+		extrapolation). See the :meth:`.interp` method for more
+		information. Default True.
+
+	Returns
+	-------
+	rs : an instance of ResponseSpectrum
+		The mean response spectrum.
+	"""
+
+	# Are the frequencies of the supplied spectra the same?
+	n0 = rslist[0].ndat
+	f0 = rslist[0].f
+	fAllEqual = np.all([n0 == rs.ndat for rs in rslist[1:]])
+	if fAllEqual:
+		fAllEqual = np.all([np.allclose(f0,rs.f) for rs in rslist[1:]])
+
+	# If frequencies are not the same, determine a common set of frequencies
+	if not fAllEqual:
+		f0 = np.concatenate([rs.f for rs in rslist])
+		f0 = np.unique(f0)
+
+	# Are the damping ratios the same?
+	xi0 = rslist[0].xi
+	xiAllEqual = np.all([xi0 == rs.xi for rs in rslist[1:]])
+	if not xiAllEqual:
+		config.vprint('WARNING: At least two response spectra supplied to '
+				'the meanrs function have different damping ratios.')
+
+	allsa = np.empty((len(rslist),len(f0)))
+	for i,rs in enumerate(rslist):
+		if fAllEqual:
+			allsa[i,:] = rs.sa
+		else:
+			allsa[i,:] = rs.interp(f0, kind=kind, merge=False,
+				  sd_extrapolate=sd_extrapolate, mutate=False)
+
+	sa = np.mean(allsa, axis=0)
+
+	return ResponseSpectrum(f0, sa, xi=xi0)
+
+
+@config.set_module('qtools')
+def envelope(rslist, rs2=None, option=0, kind='loglin', radp=False,
+			  sd_extrapolate=True):
+	"""
+	Compute the envelope of two or more response spectra.
+
+	Parameters
+	----------
+	rslist : list
+		A list containing two or more instances of ResponseSpectrum. This
+		first argument can also be a single instance of ResponseSpectrum (for
+		backwards compatibility only).
+	rs2 : an instance of ResponseSpectrum (optional, deprecated)
+		This spectrum is also included in the enveloping operation.
+		This second argument is provided for backwards compatibility only and
+		will be removed in version 2.0.
 	option : int, optional
-		Set ``option = 0`` to envelope at the frequencies of both spectra and
-		any frequencies where the two spectra intersect (recommended).
-		Set ``option = 1`` or ``option = 2`` to envelope only at the
-		frequencies of the 1st or 2nd spectrum and any frequencies where the
-		two spectra intersect (note: this may result in imperfect enveloping).
+		Deprecated since version 1.1. Will be removed in version 2.0. This
+		parameter is not used for anything.
+	radp : bool
+		If True, retain all data points. If False, simplify straight lines
+		in a `kind` co-ordinate system. See notes below. Default False.
 	kind : {'loglin', 'loglog'}, optional
 		Type of interpolation used to determine values between data points.
 		Only the following options are valid:
+
 		* 'loglin' - logarithmic x-axis, linear y-axis (default).
 		* 'loglog' - logarithmic x-axis and y-axis.
+
 	sd_extrapolate : bool, optional
 		Manner of extrapolation for :math:`f < f_{min}` where :math:`f_{min}`
 		is the minimum frequency in the frequency arrays of `rs1` or `rs2`
@@ -424,10 +526,20 @@ def envelope(rs1, rs2, option=0, kind='loglin', sd_extrapolate=True):
 	Returns
 	-------
 	rs : an instance of ResponseSpectrum
-		The envelope of `rs1` and `rs2`
+		The envelope of all response spectra provided as arguments to the
+		function.
 
 	Notes
 	-----
+	The default behaviour of this function is to delete intermediate data
+	points within segments of straight lines in a `kind` co-ordinate system.
+	For that reason, enveloping multiple spectra with ``kind = 'loglin'``
+	followed by plotting on a log-log graph can lead to unexpected results.
+	For the same reason, enveloping with ``kind = 'loglog'`` followed by
+	plotting on a lin-log graph can also lead to unexpected results.
+	Set ``radp = True`` to avoid straight line simplification and retain all
+	data points.
+
 	Spectral accelerations are interpolated and/or extrapolated as necessary
 	to compute the envelope over the entire frequency range.
 	The method :meth:`.interp` is used for this purpose.
@@ -441,69 +553,89 @@ def envelope(rs1, rs2, option=0, kind='loglin', sd_extrapolate=True):
 	  displacement is constant for :math:`f < f_{min}`;
 	* when ``sd_extrapolate is False``, it is assumed that the spectral
 	  acceleration is constant for :math:`f < f_{min}`.
-
-	Input energy is not enveloped. The new spectrum will have zero input energy.
 	"""
+
+	if type(rslist) not in [list, ResponseSpectrum]:
+		raise TypeError('The first argument must be a list of response spectra'
+				  ' or a single instance of ResponseSpectrum.')
+	if type(rs2) not in [type(None), ResponseSpectrum]:
+		raise TypeError('The second argument, if provided, must be an'
+				  ' instance of ResponseSpectrum.')
+	if type(rslist) == ResponseSpectrum and type(rs2) == ResponseSpectrum:
+		rslist = [rslist, rs2]
+		config.vprint('WARNING: calling envelope() with two response spectra '
+				'as arguments, i.e. as envelope(rs1,rs2), is deprecated; '
+				'use envelope([rs1,rs2]) instead.')
+	elif type(rslist) == list and type(rs2) == ResponseSpectrum:
+		rslist.append(rs2)
+
 	if kind not in ('loglin','loglog'):
 		raise ValueError('The parameter kind must be either \'loglin\' or \'loglog\'')
-	# Create copies of rs1 and rs1 to avoid changing the values of their attributes
-	rsa = copy.deepcopy(rs1)
-	rsb = copy.deepcopy(rs2)
 
-	# Find intersections
-	k = 0
-	fi = []
-	for i in range(len(rsa.f)-1):
-		for j in range(k,len(rsb.f)-1):
-			if rsb.f[j] >= rsa.f[i+1]: break
-			if rsb.f[j+1] <= rsa.f[i]: k += 1; continue
-			coords = _intersection(rsa.f[i:i+2],rsa.sa[i:i+2],rsb.f[j:j+2],rsb.sa[j:j+2],kind=kind)
-			if coords[0] > 0:
-				fi.append(coords[0])
-	# Interpolate spectra at the specified frequencies
-	if option == 0:
+	# Define a function that returns the envelope of two spectra
+	def env2rs(rsa,rsb):
+		# Find intersections
+		k = 0
+		fi = []
+		for i in range(len(rsa.f)-1):
+			for j in range(k,len(rsb.f)-1):
+				if rsb.f[j] >= rsa.f[i+1]: break
+				if rsb.f[j+1] <= rsa.f[i]: k += 1; continue
+				coords = _intersection(rsa.f[i:i+2], rsa.sa[i:i+2], rsb.f[j:j+2],
+						   rsb.sa[j:j+2], kind=kind)
+				if coords[0] > 0:
+					fi.append(coords[0])
+		# Creat an ordered list of all frequencies, removing duplicates
 		f0 = np.unique(np.concatenate((rsa.f,rsb.f,fi)))
-	elif option == 1:
-		f0 = np.unique(np.concatenate((rsa.f,fi)))
-	elif option == 2:
-		f0 = np.unique(np.concatenate((rsb.f,fi)))
-	else:
-		raise ValueError('The parameter option must be assigned a value of 0, 1 or 2.')
-	# Interpolate at the new frequencies
-	rsa.interp(f0, kind=kind, merge=False, sd_extrapolate=sd_extrapolate)
-	rsb.interp(f0, kind=kind, merge=False, sd_extrapolate=sd_extrapolate)
-	# Envelope
-	sa0 = np.fmax(rsa.sa,rsb.sa)
-	# Remove redundant points (i.e. points on a straight line)
-	f1 = np.array([])
-	sa1 = np.array([])
-	if kind == 'loglin':
-		# Adding 1 just ensures that a1 != a0 in the first loop.
-		a0 = (sa0[1]-sa0[0])/(log(f0[1]/f0[0]))+1
-	else:
-		# Adding 1 just ensures that a1 != a0 in the first loop.
-		a0 = log(sa0[1]/sa0[0])/(log(f0[1]/f0[0]))+1
-	for i in range(len(f0)-1):
-		if kind == 'loglin':
-			a1 = (sa0[i+1]-sa0[i])/(log(f0[i+1]/f0[i]))
+		# Interpolate at the new frequencies
+		saa = rsa.interp(f0, kind=kind, merge=False,
+				   sd_extrapolate=sd_extrapolate, mutate=False)
+		sab = rsb.interp(f0, kind=kind, merge=False,
+				   sd_extrapolate=sd_extrapolate, mutate=False)
+		# Envelope
+		sa0 = np.fmax(saa,sab)
+		if radp:
+			f1 = f0
+			sa1 = sa0
 		else:
-			a1 = log(sa0[i+1]/sa0[i])/(log(f0[i+1]/f0[i]))
-		if not isclose(a1,a0):
-			a0 = a1
-			f1 = np.append(f1,f0[i])
-			sa1 = np.append(sa1,sa0[i])
-	f1 = np.append(f1,f0[-1])
-	sa1 = np.append(sa1,sa0[-1])
-	# Finally, check damping
-	if rs1.xi != rs2.xi:
-		config.vprint('WARNING: an envelope is created of two spectra with different damping ratios.')
-		config.vprint('The damping ratio of the new enveloping spectrum is '
-				'defined as {}.'.format(rs1.xi))
+			# Remove redundant points (i.e. points on a straight line)
+			f1 = []
+			sa1 = []
+			if kind == 'loglin':
+				# Adding 1 just ensures that a1 != a0 in the first loop.
+				a0 = (sa0[1]-sa0[0])/(log(f0[1]/f0[0]))+1
+			else:
+				# Adding 1 just ensures that a1 != a0 in the first loop.
+				a0 = log(sa0[1]/sa0[0])/(log(f0[1]/f0[0]))+1
+			for i in range(len(f0)-1):
+				if kind == 'loglin':
+					a1 = (sa0[i+1]-sa0[i])/(log(f0[i+1]/f0[i]))
+				else:
+					a1 = log(sa0[i+1]/sa0[i])/(log(f0[i+1]/f0[i]))
+				if not isclose(a1,a0,abs_tol=1E-9):
+					# Add data point
+					a0 = a1
+					f1.append(f0[i])
+					sa1.append(sa0[i])
+			f1.append(f0[-1])
+			sa1.append(sa0[-1])
+		# Finally, check damping
+		if rsa.xi != rsb.xi:
+			config.vprint('WARNING: an envelope is created of two spectra with'
+				 ' different damping ratios.')
+			config.vprint('The damping ratio of the new enveloping spectrum is'
+					' defined as {}.'.format(rs1.xi))
+		return ResponseSpectrum(np.array(f1),np.array(sa1),xi=rsa.xi)
 
-	return ResponseSpectrum(f1,sa1,xi=rs1.xi)
+	rs0 = rslist[0]
+	# Loop over and envelope all response spectra
+	for rs1 in rslist[1:]:
+		rs0 = env2rs(rs0,rs1)
+
+	return rs0
 
 @config.set_module('qtools')
-def peakbroad(rs, df=0.15, df_sign='plus/minus', peak_cap=True):
+def peakbroad(rs, df=0.15, df_sign='plus/minus', peak_cap=False, truncate=True):
 	"""Broaden a spectrum.
 
 	Parameters
@@ -518,9 +650,12 @@ def peakbroad(rs, df=0.15, df_sign='plus/minus', peak_cap=True):
 		The sign implied on parameter `df`. If for example
 		``df_sign = 'minus'``, the function will undertake peak broadening in
 		the negative direction only.
-	peak_cap : bool
+	peak_cap : bool, optional.
 		Cap the peaks before the broadening operation in accordance with
-		ASCE 4-16, 6.2.3(b). Default `True`.
+		ASCE 4-16, 6.2.3(b). Default `False`.
+	truncate : bool, optional
+		Limit the minimum and maximum frequencies of the broadened spectrum to
+		those of the input spectrum. Default `True`.
 
 	Returns
 	-------
@@ -537,9 +672,6 @@ def peakbroad(rs, df=0.15, df_sign='plus/minus', peak_cap=True):
 	``kind = 'loglog'`` to generate as many new points as necessary before
 	broadening.
 	"""
-	#
-	# Note: consider implementing optional truncation of broadening at rs.f[0] and rs.f[-1]
-	#
 
 	# Split the spectrum into segments
 	sgn0 = np.sign(rs.sa[1]-rs.sa[0])
@@ -662,6 +794,22 @@ def peakbroad(rs, df=0.15, df_sign='plus/minus', peak_cap=True):
 	fq, ui = np.unique(np.concatenate(tuple(s[0] for s in segs)), return_index=True)
 	sa = np.concatenate(tuple(s[1] for s in segs))[ui]
 
+	# Truncate the spectrum such that rs.f[0] <= f <= rs.f[-1]
+	if truncate:
+		m = 0; n = len(fq)
+		for i in range(len(fq)-1):
+			if fq[i] <= rs.f[0] and fq[i+1] > rs.f[0]:
+				sa[i] = np.interp(log(rs.f[0]),np.log(fq[i:i+2]),sa[i:i+2])
+				fq[i] = rs.f[0]
+				m = i
+			elif fq[i] < rs.f[-1] and fq[i+1] >= rs.f[-1]:
+				sa[i+1] = np.interp(log(rs.f[-1]),np.log(fq[i:i+2]),sa[i:i+2])
+				fq[i+1] = rs.f[-1]
+				n = i+2
+
+		fq = fq[m:n]
+		sa = sa[m:n]
+
 	return ResponseSpectrum(fq,sa,xi=rs.xi)
 
 def _intersection(xa,ya,xb,yb,kind='loglin'):
@@ -762,7 +910,7 @@ def _peak_cap(left,right):
 	return rsls,sgns
 
 @config.set_module('qtools')
-def calcrs(th, ffile=None, nf=200, fmin=0.1, fmax=100, xi=0.05,
+def calcrs(th, ffile=None, nf=200, fmin=0.1, fmax=100., xi=0.05,
 		   solver='solode', accuracy='medium', MP=False):
 	"""
 	Calculate a response spectrum from a time history.
@@ -772,18 +920,21 @@ def calcrs(th, ffile=None, nf=200, fmin=0.1, fmax=100, xi=0.05,
 	th : an instance of class TimeHistory
 		An acceleration time history defining the base motion.
 	ffile : str, optional
-		Read frequency points from file `ffile`. If not assigned a value, the
-		function will use parameters `nf`, `fmin` and `fmax` to generate an
-		array of frequency points. See Notes below.
+		Read frequency points from file `ffile`. If not specified, the function
+		will generate `nf` frequency points between `fmin` and `fmax` equally
+		spaced on a logarithmic scale.
 	nf : int, optional
-		Number of frequency points. Default 200.
+		Number of frequency points. Default 200. Ignored if `ffile` is
+		specified.
 	fmin : float, optional
-		Minimum frequency considered. Default 0.1 Hz.
+		Minimum frequency considered. Default 0.1 Hz. Ignored if `ffile` is
+		specified.
 	fmax : float, optional
-		Maximum frequency considered. Default 100.0 Hz.
+		Maximum frequency considered. Default 100.0 Hz. Ignored if `ffile` is
+		specified.
 	xi : float, optional
 		Damping ratio. Default 0.05.
-	solver : {'solode', 'odeint'}, optional,
+	solver : {'solode', 'odeint'}, optional
 		Solution algorithm to be use for the computation. Default 'solode'.
 	accuracy : {'low', 'medium', 'high'}, optional
 		The required accuracy of the response spectrum. Valid with solver
@@ -799,11 +950,6 @@ def calcrs(th, ffile=None, nf=200, fmin=0.1, fmax=100, xi=0.05,
 
 	Notes
 	-----
-	If `ffile` is not specified, the function will generate `nf` frequency
-	points between `fmin` and `fmax` equally spaced on a logarithmic scale.
-
-	**A note on solvers**
-
 	The default solver is solode, which is particularly suited to a second
 	order linear ordinary differential equation (ODE) with numerical
 	data as a forcing function (as opposed to an analytical function).
@@ -863,7 +1009,6 @@ def calcrs(th, ffile=None, nf=200, fmin=0.1, fmax=100, xi=0.05,
 			config.vprint('WARNING: The input energy is not calculated when using multiple processes.')
 			with multiprocessing.Pool(processes=processes) as pool:
 				sd = pool.map(functools.partial(_solode, y0, th, xi), w)
-			ei = np.zeros_like(f)
 		else:
 			config.vprint('WARNING: Only one process available; reverting to single processing.')
 			MP = False
@@ -871,7 +1016,6 @@ def calcrs(th, ffile=None, nf=200, fmin=0.1, fmax=100, xi=0.05,
 	if not MP:
 		# Single process
 		sd = np.empty_like(w)
-		ei = np.empty_like(w)
 		for i in range(len(w)):
 			if solver == 'odeint':
 				if dml == 'viscous':
@@ -882,41 +1026,145 @@ def calcrs(th, ffile=None, nf=200, fmin=0.1, fmax=100, xi=0.05,
 					# Low accuracy - for quick and dirty solutions
 					sol = odeint(fun1,y0,th.time,args=(w[i],xi,th),atol=0.0001,rtol=0.001)
 				elif accuracy == 'medium':
-					# The atol and rtol values in the following call seem to provide a reasonable compromise between speed and accuracy
+					# The atol and rtol values in the following call seem to
+					# provide a reasonable compromise between speed and accuracy
 					sol = odeint(fun1,y0,th.time,args=(w[i],xi,th),atol=0.000001,rtol=0.001)
 				elif accuracy == 'high':
 					# For solutions that display spurious high frequency behaviour, the following call should be tried:
 					sol = odeint(fun1,y0,th.time,args=(w[i],xi,th))
 				sd[i] = np.amax(np.fabs(sol[:,0]))
 			elif solver == 'fsolode':
-				sd[i], sol = auxforsubs.solode(y0,np.array((th.time,th.data)).T,th.dt_fixed,xi,w[i])
+				sd[i], sol = auxforsubs.solode(y0,th.time,th.data,th.dt_fixed,xi,w[i])
 			elif solver == 'psolode':
-				sol = _solode(y0,th,xi,w[i],peak_resp_only=False)
-				sd[i] = np.amax(np.fabs(sol[:,0]))
-			# Spectral input energy
-			# Calculate the input energy as the sum of kinetic energy, strain energy and energy dissipated in viscuos damping.
-			svl = trapz(th.data,th.time)
-			Ekin = 1/2*(sol[-1,1]+svl)**2
-			Estr = 1/2*(w[i]*sol[-1,0])**2
-			Evis = trapz(2*xi*w[i]*sol[:,1]**2,x=th.time)
-			ei[i] = Evis+Ekin+Estr
-			# Calculate the work done on the system. This should yield similar results.
-			#svl = cumtrapz(th.data,th.time,initial=0)
-			#intg = -(2*xi*w[i]*sol[:,1]+w[i]**2*sol[:,0])*svl
-			#ei[i] = trapz(intg,x=th.time)
-			# Alternatively, calculate the work done on the system by integration by parts of the total inertia force times ground velocity
-			#svl = cumtrapz(th.data,th.time,initial=0)
-			#ei[i] = sol[-1,1]*svl[-1]+svl[-1]**2/2-trapz(th.data*sol[:,1],x=th.time)
+				sd[i] = _solode(y0,th,xi,w[i])
 
 	# Set spectral accelerations equal to the PGA for f greater than the Nyquist frequency
 	if fmax > th.fNyq:
-		config.vprint('NOTE: Spectral accelerations above the Nyquist frequency ({:6.2f} Hz) are assumed equal to the ZPA.'.format(th.fNyq))
+		config.vprint('NOTE: Spectral accelerations above the Nyquist '
+				'frequency ({:6.2f} Hz) are assumed equal to the ZPA.'.format(th.fNyq))
 		sd = np.append(sd,th.pga/(2*pi*f[sd.size:])**2)
 
 	# Complete the creation of a response spectrum
 	config.vprint('------------------------------------------')
-	rs = ResponseSpectrum(f,sd,z=ei,abscissa='f',ordinate='sd',xi=xi)
+	rs = ResponseSpectrum(f, sd, abscissa='f', ordinate='sd', xi=xi)
 	rs.setLabel(th.label)
+	return rs
+
+@config.set_module('qtools')
+def calcrs_cmp(ths, ffile=None, nf=200, fmin=0.1, fmax=100, xi=0.05,
+		   cmp='GM', theta=0):
+	"""
+	Calculate a response spectrum from a time history set and return a
+	specified horizontal component.
+
+	Parameters
+	----------
+	ths : an instance of class TimeHistorySet
+		An acceleration time history set defining the base motion. Only
+		horizontal motions will be processed. The vertical motion, if included
+		in the set, will be ignored.
+	ffile : str, optional
+		Read frequency points from file `ffile`. If `ffile` is not specified,
+		the function will generate `nf` frequency points between `fmin` and
+		`fmax` equally spaced on a logarithmic scale.
+	nf : int, optional
+		Number of frequency points. Default 200. Ignored if `ffile` is
+		specified.
+	fmin : float, optional
+		Minimum frequency considered. Default 0.1 Hz. Ignored if `ffile` is
+		specified.
+	fmax : float, optional
+		Maximum frequency considered. Default 100.0 Hz. Ignored if `ffile` is
+		specified.
+	xi : float, optional
+		Damping ratio. Default 0.05.
+	cmp : {'GM', 'MC', 'MD', 'GMRotD50'}, optional
+		Desired output component:
+
+		* 'GM' is geometric mean computed for rotation angle `theta`.
+		* 'MC' is maximum component, i.e. the maximum spectral acceleration
+		  of the two components computed at rotation angle `theta`.
+		* 'MD' is maximum direction, i.e. the maximum spectral acceleration
+		  for all possible rotations (`theta` is ignored).
+		* 'GMRotD50' is the median value of the geometric mean for all
+		  possible rotations ('theta' is ignored).
+
+		Default value 'GM'.
+	theta : float, optional
+		Rotation angle in degrees. The two horiontal base motions in the time
+		history set will be rotated by `theta` degrees.
+
+	Returns
+	-------
+	rs : an instance of ResponseSpectrum
+	"""
+
+	# Preliminary checks
+	if ths[0].ordinate != 'a':
+		raise TypeError('The time history used as input to function calcrs_cmp '
+				  'must be an acceleration time history.')
+	if xi >= 1.0:
+		raise ValueError('The damping ratio must be less than 1 when using the solode solver.')
+	if ths[0].dt_fixed:
+		config.vprint('The time step is taken as fixed.')
+	else:
+		config.vprint('The time step is taken as variable.')
+
+	if ffile == None:
+		# Generate frequency points
+		f = np.logspace(log10(fmin), log10(fmax), nf)
+	else:
+		# Read frequency points from file
+		f = np.loadtxt(ffile)
+		nf = np.size(f)
+		fmax = f[-1]
+	if f[0] >= ths[0].fNyq:
+		raise ValueError('The lowest frequency of the spectrum is greater than, '
+				   'or equal to, the Nyquist frequency of the time history.')
+
+	w = 2*pi*f
+	y0 = [0.0,0.0]
+
+	if cmp == 'GM' or cmp == 'MC' or cmp == 'MD':
+		angles = [np.radians(theta)]
+	elif cmp == 'GMRotD50':
+		angles = np.radians(np.arange(0, 90, step=1))
+	else:
+		raise ValueError('The option cmp = {} is not supported.'.format(cmp))
+
+	config.vprint('Using solver solode to compute response spectrum for component {}.'.format(cmp))
+	ax = ths[0].data; ay = ths[1].data
+	sd = np.empty((len(w),len(angles)))
+	for i in range(len(w)):
+		for j, q in enumerate(angles):
+			a0 = ax*cos(q) + ay*sin(q)
+			a1 = -ax*sin(q) + ay*cos(q)
+			if USE_FORTRAN_SUBS:
+				sd0, sol0 = auxforsubs.solode(y0,ths[0].time,a0,ths[0].dt_fixed,xi,w[i])
+				sd1, sol1 = auxforsubs.solode(y0,ths[1].time,a1,ths[1].dt_fixed,xi,w[i])
+			else:
+				ths[0].data = a0; ths[1].data = a1
+				sol0 = _solode(y0,ths[0],xi,w[i],peak_resp_only=False)
+				sd0 = np.amax(np.fabs(sol0[:,0]))
+				sol1 = _solode(y0,ths[1],xi,w[i],peak_resp_only=False)
+				sd1 = np.amax(np.fabs(sol0[:,0]))
+			if cmp == 'GM':
+				sd[i,j] = sqrt(sd0*sd1)
+			elif cmp == 'MC':
+				sd[i,j] = max(sd0, sd1)
+			elif cmp == 'MD':
+				sd[i,j] = np.amax(np.sqrt(sol0[:,0]**2 + sol1[:,0]**2))
+			elif cmp == 'GMRotD50':
+				sd[i,j] = sqrt(sd0*sd1)
+		if cmp == 'GMRotD50':
+			sd[i,0] = np.median(sd[i,:])
+
+	# Retore original data in the time histories
+	ths[0].data = ax; ths[1].data = ay
+	# Complete the creation of a response spectrum
+	config.vprint('------------------------------------------')
+	rs = ResponseSpectrum(f, sd[:,0], abscissa='f', ordinate='sd', xi=xi)
+	rs.setLabel(' '.join((ths.label,cmp)))
 	return rs
 
 def _solode(y0,th,xi,w,peak_resp_only=True):
@@ -936,6 +1184,9 @@ def _solode(y0,th,xi,w,peak_resp_only=True):
 		Damping ratio of the system
 	w : float
 		Undamped natural frequency of the system (rad/s)
+	peak_resp_only : bool, optional
+		If True, return only the maximum absolute displacement, otherwise
+		return a full response time history. Default True.
 
 	Returns
 	-------
@@ -1051,6 +1302,113 @@ def loadrs(sfile, abscissa='f', ordinate='sag', length='m', xi=0.05,
 	# Set label (removing the file path and the extension, if any)
 	rs.setLabel(Path(sfile).stem)
 	return rs
+
+@config.set_module('qtools')
+def dmpinterp(rs1, rs2 , xi, method=2, kind='loglin', sd_extrapolate=True):
+	"""Interpolates two response spectra at a new damping level.
+
+	Parameters
+	----------
+	rs1 : an instance of class ResponseSpectrum
+		The first response spectrum to be considered (with damping level
+		`rs1.xi`).
+	rs2 : an instance of class ResponseSpectrum
+		The second response spectrum to be considered (with damping level
+		`rs2.xi`, which must be different from `rs1.xi`).
+	xi : float
+		Damping level for the new response spectrum.
+	method : {1, 2}, optional
+		Method of interpolation between two damping values. See notes below.
+	kind : {'loglin', 'loglog'}, optional
+		Type of interpolation used to determine spectral acceleration values
+		between two frequencies for a given level of damping.
+		Only the following options are valid:
+
+		* 'loglin' - logarithmic x-axis, linear y-axis (default).
+		* 'loglog' - logarithmic x-axis and y-axis.
+
+	sd_extrapolate : bool, optional
+		Manner of extrapolation for :math:`f < f_{min}` where :math:`f_{min}`
+		is the minimum frequency in the frequency arrays of `rs1` or `rs2`
+		(whichever requires extrapolation). See also :func:`.envelope`.
+
+	Returns
+	-------
+	rs : An instance of class ResponseSpectrum
+		A new response spectrum interpolated at damping `xi`.
+
+	Notes
+	-----
+	This function will first interpolate `rs1` and `rs2` individually at a
+	common set of frequencies based on the parameters `kind` and
+	`sd_extrapolate`. Then the function will interpolate between `rs1` and `rs2`
+	and thereby compute a new response spectrum at the intermediate damping
+	level `xi`.
+
+	Two methods are recommended for interpolating response spectra at
+	intermediate damping values. The first is linear interpolation on the
+	natural logarithms of the damping values (set ``method = 1`` to use this
+	method). The second is considered more accurate (`ASCE 4-16`_, C6.2.4)
+	and is based on a random vibration approach (set ``method = 2`` to use this
+	method). The details of this approach are described by `Preumont (1988)`_.
+	Thus, method 1 implements `ASCE 4-98`_, (Eq. 2.2-1), and method 2
+	implements `ASCE 4-16`_, (6.2).
+
+	This function can also be used for extrapolation although this is not
+	recommended.
+
+	References
+	----------
+	.. _ASCE 4-98:
+
+	ASCE 4-98, Seismic Analysis of Safety-Related Nuclear
+	Structures and Commentary, American Society of Civil Engineers, 1999.
+
+	.. _ASCE 4-16:
+
+	ASCE/SEI 4-16, Seismic Analysis of Safety-Related Nuclear
+	Structures and Commentary, American Society of Civil Engineers, 2017.
+
+	.. _Preumont (1988):
+
+	Preumont, A., 1988: "Application of the random vibration approach in the
+	seismic analysis of LMFBR structures", Nuclear Science and Technology,
+	Commission of the European Communities, Luxembourg.
+	"""
+	# Check damping levels
+	if isclose(rs1.xi,rs2.xi):
+		raise ValueError('The damping levels of rs1 and rs2 must be different.')
+	if xi < min(rs1.xi,rs2.xi) or xi > max(rs1.xi,rs2.xi):
+		config.vprint('WARNING: function dampinterp is used for extrapolation.')
+	if max(rs1.xi,rs2.xi) > 3*min(rs1.xi,rs2.xi):
+		config.vprint('WARNING: the maxmum damping ratio is more than 3 times the '
+				'minimum damping ratio, which outside ASCE 4 recommended bounds.')
+	# Create copies of rs1 and rs1 to avoid changing the values of their attributes
+	rsa = copy.deepcopy(rs1)
+	rsb = copy.deepcopy(rs2)
+	# Find intersections (hopefully none!)
+	k = 0
+	fi = []
+	for i in range(len(rsa.f)-1):
+		for j in range(k,len(rsb.f)-1):
+			if rsb.f[j] >= rsa.f[i+1]: break
+			if rsb.f[j+1] <= rsa.f[i]: k += 1; continue
+			coords = _intersection(rsa.f[i:i+2],rsa.sa[i:i+2],rsb.f[j:j+2],rsb.sa[j:j+2],kind=kind)
+			if coords[0] > 0:
+				config.vprint('WARNING: The two response spectra supplied as '
+				  'arguments to function dmpinterp intersect at f = {}.'.format(coords[0]))
+				fi.append(coords[0])
+	# Interpolate spectra at a common set of frequencies
+	f0 = np.unique(np.concatenate((rsa.f,rsb.f,fi)))
+	rsa.interp(f0, kind=kind, merge=False, sd_extrapolate=sd_extrapolate)
+	rsb.interp(f0, kind=kind, merge=False, sd_extrapolate=sd_extrapolate)
+	# Interpolate at damping levels
+	if method == 1:
+		sa = rsa.sa+(rsb.sa-rsa.sa)*log(xi/rsa.xi)/log(rsb.xi/rsa.xi)
+	else:
+		sa = np.sqrt(rsb.sa**2+(rsa.sa**2-rsb.sa**2)*rsa.xi/xi*(xi-rsb.xi)/(rsa.xi-rsb.xi))
+
+	return ResponseSpectrum(f0,sa,xi=xi)
 
 @config.set_module('qtools')
 def ec8_2004(pga, pga_unit='g', xi=0.05, inf=10, stype=1, gtype='A', q=1.0,
@@ -1372,14 +1730,15 @@ def pml(pga, pga_unit='g', xi=0.05, inf=10, gtype='hard'):
 			SA.append(pga)
 
 	rs = ResponseSpectrum(np.array(fl), np.array(SA), abscissa='f', ordinate=ord, xi=xi)
-	rs.setLabel('PML GT '+str(gtype)+' '+str(xi*100)+'%')
+	rs.setLabel('PML '+str(gtype)+' '+str(xi*100)+'%')
 	return rs
 
 @config.set_module('qtools')
 def eur_vhr(pga, pga_unit='g', inf=10):
 	"""
 	Create a response spectrum in accordance with the draft EUR Very Hard Rock
-	spectrum (model 1) [1]_. This function will generate a spectrum in the range
+	spectrum (model 1) proposed by `Dalguer & Renault (2017)`_.
+	This function will generate a spectrum in the range
 	`T` = [0.005;10] sec or `f` = [0.1;200] Hz. The spectrum will have 5%
 	damping.
 
@@ -1399,10 +1758,13 @@ def eur_vhr(pga, pga_unit='g', inf=10):
 
 	References
 	----------
-	.. [1] Dalguer, LA, & Renault, PLA, Design response spectra for very hard
-	   rock based in Swiss site-specific seismic hazard model, *16th World
-	   Conference on Earthquake Engineering*, Santiago Chile, January 9th to
-	   13th 2017.
+
+	.. _Dalguer & Renault (2017):
+
+	Dalguer, L.A., & Renault, P.L.A., 2017: "Design response spectra for very
+	hard rock based in Swiss site-specific seismic hazard model", *16th World
+	Conference on Earthquake Engineering*, Santiago Chile, January 9th to
+	13th.
 	"""
 
 	# Define spectral parameters
