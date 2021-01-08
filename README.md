@@ -78,7 +78,7 @@ Revisions in version 1.0 include:
 
 ### Version 1.1
 
-Version WIP.
+Version completed January 2021.
 
 Revisions in version 1.1 include:
 - Error corrected in function `qt.plotps` (function updated to accommodate new definition of `unit` attribute
