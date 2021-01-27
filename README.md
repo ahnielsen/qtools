@@ -64,7 +64,7 @@ Revisions in version 1.0 include:
 - Attribute `ei` (meant to contain input energy) removed from `qt.ResponseSpectrum`. As a replacement, a new class
   `qt.EnergySpectrum` is introduced.
 - Fourier amplitudes removed from class `qt.PowerSpectrum`.
-- New class `qt.FourierSpectrum` with accompanying creator function `qt.calcfs()`.
+- New class `qt.FourierSpectrum` with accompanying creator function `qt.calcfs`.
 - Parameter `color` added to `qt.ResponseSpectrum.setLineFormat`.
 - Minor change to the criterion for removal of duplicate frequencies in `qt.ResponseSpectrum.interp`.
 - Added class method `qt.TimeHistory.differentiate`.
@@ -87,9 +87,17 @@ Revisions in version 1.1 include:
 - Function `qt.envelope` now takes as its first argument a list containing any number of response spectra (`qt.envelope(rslist)`).
   The old call signature (`qt.envelope(rs1,rs2)`) will still work; however, this signature is deprecated
   and will become obsolete in version 2.0.
-- The `option` parameter is no longer used for anything in `qt.envelope()`.
+- The `option` argument is no longer used for anything in `qt.envelope`.
 - New argument `mutate` added to `qt.ResponseSpectrum.interp`.
 - New function `qt.meanrs` added.
+
+### Version 1.2
+
+Version completed January 2021.
+
+Revisions in version 1.2 include:
+- Docstring for class `qt.TimeHistorySet` written.
+- Added arguments `label` and `fmt` to functions `qt.meanrs` and `qt.loadrs`.
 
 Author
 ------

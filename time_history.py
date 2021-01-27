@@ -327,7 +327,33 @@ class TimeHistory:
 
 @config.set_module('qtools')
 class TimeHistorySet:
+	"""
+	A time history set contains two or three time histories that
+	describe the two or three components of motion at a point (typically
+	two horizontal components and one vertical).
+	
+	Parameters
+	----------
+	*ths : two or three instances of :class:`TimeHistory`.
+		The time histories forming the set. The vertical component should be
+		last.
+	label : str, optional
+		A label that describes the set. Default 'none'.
 
+	Attributes
+	----------
+	ths : tuple
+		A tuple containing two or three instances of :class:`TimeHistory`: the
+		time histories forming the set.
+	Nth : int
+		The number of time histories in the set.
+	label : str
+		A label that describes the set.
+
+	Returns
+	-------
+	An instance of TimeHistorySet.
+	"""
 	def __init__(self, *ths, label='None'):
 
 		# Check input
@@ -346,12 +372,12 @@ class TimeHistorySet:
 		self.label = label
 
 	def __setitem__(self,index,value):
-		if index < 0 or index > 2:
+		if index < 0 or index > self.Nth-1:
 			raise IndexError('Index {} is out of range for a time history set.'.format(index))
 		self.ths[index] = value
 
 	def __getitem__(self,index):
-		if index < 0 or index > 2:
+		if index < 0 or index > self.Nth-1:
 			raise IndexError('Index {} is out of range for a time history set.'.format(index))
 		return self.ths[index]
 
@@ -482,18 +508,17 @@ def loadth(sfile, ordinate='a', dt=-1.0, factor=1.0, delimiter=None,
 
 	if not dt_fixed:
 		# Look for the time step definition in the input file
-		fil = open(sfile,'r')
-		for line in fil.readlines():
-			if 'dt =' in line:
-				met = line.partition('=')[2].lstrip()
-				try:
-					dt = float(met)
-				except:
-					pass
-				else:
-					dt_fixed = True
-					break
-		fil.close()
+		with open(sfile,'r') as fil:
+			for line in fil.readlines():
+				if 'dt =' in line:
+					met = line.partition('=')[2].lstrip()
+					try:
+						dt = float(met)
+					except:
+						pass
+					else:
+						dt_fixed = True
+						break
 
 	# Now read the data from the specified file
 	rawdata = np.loadtxt(sfile,delimiter=delimiter,comments=comments,skiprows=skiprows)

@@ -94,8 +94,33 @@ def disrs_main(D,du,z0,fc,GT,ZMIN,INRES,**kwargs):
 	for d in range(D):
 		SAb[:,:,d] = SDb[1:Nfb+1,d*Nzb+1:(d+1)*Nzb+1]
 
-	# Create interpolation functions for spectral accelerations
+
 	def SAfun(SAi,fi,zi,f,z):
+		"""
+		Interpolation function for spectral accelerations.
+		
+		Parameters
+		----------
+		SAi : NumPy array
+			A 2D array with spectal accelerations.
+		fi : NumPy array
+			A 1D array with frequency values. Note: `fi.size` must be equal 
+			to `SAi.shape[0]`.
+		zi : NumPy array
+			A 1D array with damping values. Note: `zi.size` must be equal 
+			to `SAi.shape[1]`.
+		f : NumPy array
+			A 1D array with new frequencies.
+		z : NumPy Array or float
+			New damping values. This can be a 1D NumPy array
+			(for which `z.size==f.size` evaluates as `True`) or a single float.
+
+		Returns
+		-------
+		SAo : NumPy array
+			A 1D array of length `f.size` with interpolated spectral
+			accelerations.
+		"""
 		# Impose a lower bound on the damping value
 		z = np.fmax(z,ZMIN*np.ones_like(z))
 		Nf = np.size(f)
@@ -297,21 +322,21 @@ def disrs(rslist, mdlist, du, z0, fc, GT='H', ZMIN=0.001, INRES=True):
 	----------
 	rslist : a list of lists of response spectra
 		Input spectra for ISRS computation.
-		The length of rslist determines the number of directions to be taken
-		into account (D = len(rslist) <= 3).
-		The length of rslist[0] determines the number of damping values (Nzb).
-		If rslist[1] is provided, then len(rslist[1]) must equal len(rslist[0]).
-		If rslist[2] is provided, then len(rslist[2]) must equal len(rslist[0]).
+		The length of `rslist` determines the number of directions to be taken
+		into account (`D = len(rslist) <= 3`).
+		The length of `rslist[0]` determines the number of damping values (`Nzb`).
+		If `rslist[1]` is provided, then `len(rslist[1])` must equal `len(rslist[0])`.
+		If `rslist[2]` is provided, then `len(rslist[2])` must equal `len(rslist[0])`.
 	mdlist : a list of NumPy arrays.
 		This parameter contains the modal properties of the primary system,
 		where:
 
-		* mdlist[0] is a 1D array with natural frequencies (Np = len(mdlist[0]));
-		* mdlist[1] is a 1D array with modal damping ratios;
-		* mdlist[2] is a 2D array with participation factors
-		  (the shape of this array must be (Np,D) or just (Np,) if D = 1);
-		* mdlist[3] is a 2D array with modal displacements (the shape of this
-		  array must be (Np,D) or just (Np,) if D = 1).
+		* `mdlist[0]` is a 1D array with natural frequencies (`Np = len(mdlist[0])`);
+		* `mdlist[1]` is a 1D array with modal damping ratios;
+		* `mdlist[2]` is a 2D array with participation factors
+		  (the shape of this array must be `(Np,D)` or just `(Np,)` if `D = 1`);
+		* `mdlist[3]` is a 2D array with modal displacements (the shape of this
+		  array must be `(Np,D)` or just `(Np,)` if `D = 1`).
 
 	du : {0, 1, 2}
 		Direction of in-structure response.
@@ -328,7 +353,7 @@ def disrs(rslist, mdlist, du, z0, fc, GT='H', ZMIN=0.001, INRES=True):
 		Useful if some primary modes have zero or unrealistically low damping.
 		Default 0.001.
 	INRES : bool
-		Include residual response in the computation. Default ``True``.
+		Include residual response in the computation. Default `True`.
 		See DISRS documentation for further information.
 
 	Returns

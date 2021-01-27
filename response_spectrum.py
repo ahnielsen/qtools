@@ -430,7 +430,8 @@ class ResponseSpectrum:
 		return sa
 
 @config.set_module('qtools')
-def meanrs(rslist, kind='loglin', sd_extrapolate=True):
+def meanrs(rslist, kind='loglin', sd_extrapolate=True, label='_nolegend_', 
+		   fmt=''):
 	"""
 	Compute the mean of two or more response spectra.
 
@@ -449,6 +450,12 @@ def meanrs(rslist, kind='loglin', sd_extrapolate=True):
 		is the minimum frequency in a frequency array (whichever requires
 		extrapolation). See the :meth:`.interp` method for more
 		information. Default True.
+	label : str, optional
+		Parameter passed directly to the constructor of 
+		:class:`ResponseSpectrum`.
+	fmt : str, optional
+		Parameter passed directly to the constructor of 
+		:class:`ResponseSpectrum`.
 
 	Returns
 	-------
@@ -485,7 +492,7 @@ def meanrs(rslist, kind='loglin', sd_extrapolate=True):
 
 	sa = np.mean(allsa, axis=0)
 
-	return ResponseSpectrum(f0, sa, xi=xi0)
+	return ResponseSpectrum(f0, sa, xi=xi0, label=label, fmt=fmt)
 
 
 @config.set_module('qtools')
@@ -1087,7 +1094,7 @@ def calcrs_cmp(ths, ffile=None, nf=200, fmin=0.1, fmax=100, xi=0.05,
 		* 'MD' is maximum direction, i.e. the maximum spectral acceleration
 		  for all possible rotations (`theta` is ignored).
 		* 'GMRotD50' is the median value of the geometric mean for all
-		  possible rotations ('theta' is ignored).
+		  possible rotations (`theta` is ignored).
 
 		Default value 'GM'.
 	theta : float, optional
@@ -1247,7 +1254,8 @@ def _solode(y0,th,xi,w,peak_resp_only=True):
 
 @config.set_module('qtools')
 def loadrs(sfile, abscissa='f', ordinate='sag', length='m', xi=0.05,
-		   delimiter=None, comments='#', skiprows=0):
+		   delimiter=None, comments='#', skiprows=0, label='_nolegend_', 
+		   fmt=''):
 	"""
 	Load a response spectrum from a text file. The x-values (abscissae) must
 	be in the first column,	and the y-values (ordinates) must in the second
@@ -1291,16 +1299,22 @@ def loadrs(sfile, abscissa='f', ordinate='sag', length='m', xi=0.05,
 	Notes
 	-----
 	See :func:`numpy.loadtxt` for further information on parameters `delimiter`,
-	`comments` and `skiprows`.
+	`comments` and `skiprows`. See :class:`ResponseSpectrum` for information
+	on parameters `label` and `fmt`.
 	"""
 
 	lf = {'m': 1, 'dm': 10, 'cm': 100, 'mm': 1000}
 	inp = np.loadtxt(sfile, delimiter=delimiter, comments=comments, skiprows=skiprows)
 	x = inp[:,0]
 	y = inp[:,1]/lf[length]
-	rs = ResponseSpectrum(x ,y , abscissa=abscissa, ordinate=ordinate, xi=xi)
-	# Set label (removing the file path and the extension, if any)
-	rs.setLabel(Path(sfile).stem)
+	rs = ResponseSpectrum(x ,y , abscissa=abscissa, ordinate=ordinate, xi=xi, 
+					   fmt=fmt)
+	if label=='_nolegend_':
+		# Set label based on filename (removing the file path and the extension, if any)
+		rs.setLabel(Path(sfile).stem)
+	else:
+		rs.setLabel(label)
+		
 	return rs
 
 @config.set_module('qtools')
@@ -1361,18 +1375,18 @@ def dmpinterp(rs1, rs2 , xi, method=2, kind='loglin', sd_extrapolate=True):
 	----------
 	.. _ASCE 4-98:
 
-	ASCE 4-98, Seismic Analysis of Safety-Related Nuclear
-	Structures and Commentary, American Society of Civil Engineers, 1999.
+	ASCE 4-98, *Seismic Analysis of Safety-Related Nuclear
+	Structures and Commentary*, American Society of Civil Engineers, 1999.
 
 	.. _ASCE 4-16:
 
-	ASCE/SEI 4-16, Seismic Analysis of Safety-Related Nuclear
-	Structures and Commentary, American Society of Civil Engineers, 2017.
+	ASCE/SEI 4-16, *Seismic Analysis of Safety-Related Nuclear
+	Structures and Commentary*, American Society of Civil Engineers, 2017.
 
 	.. _Preumont (1988):
 
 	Preumont, A., 1988: "Application of the random vibration approach in the
-	seismic analysis of LMFBR structures", Nuclear Science and Technology,
+	seismic analysis of LMFBR structures", *Nuclear Science and Technology*,
 	Commission of the European Communities, Luxembourg.
 	"""
 	# Check damping levels
