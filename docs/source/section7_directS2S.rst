@@ -1,10 +1,10 @@
-Direct generation of in-structure response spectra (DISRS)
-==========================================================
+Direct generation of in-structure response spectra (DirectS2S)
+==============================================================
 
 Overview
 --------
 
-DISRS can be executed as a standalone script or as function in the Qtools package.
+DirectsS2S can be executed as a standalone script or as function in the Qtools package.
 The code implements the method proposed by `Jiang et al. (2015)`_
 and `Li et al. (2015)`_ with some modification to the calculation of the
 so-called t-response spectrum.
