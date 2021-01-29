@@ -7,7 +7,7 @@ import numpy as np
 from scipy import interpolate
 from math import log
 
-def SAfun(SAi, fi, zi, f, z, ZMIN):
+def SAfun(SAi, fi, zi, f, z):
 	"""
 	Interpolation function for spectral accelerations.
 	
@@ -37,8 +37,6 @@ def SAfun(SAi, fi, zi, f, z, ZMIN):
 	-----
 	Implement damping interpolation in accordance with ASCE 4-16, 6.2.4.
 	"""
-	# Impose a lower bound on the damping value
-	z = np.fmax(z,ZMIN*np.ones_like(z))
 	# Check lengths of arguments
 	Nf = np.size(f)
 	Nz = np.size(z)

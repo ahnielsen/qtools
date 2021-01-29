@@ -10,7 +10,7 @@ See README.md for further details.
 #from math import nan
 
 # Configuration parameters
-version = '1.2'
+version = '2.0'
 verbose = True
 
 # Define function that will print output if verbose

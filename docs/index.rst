@@ -11,7 +11,7 @@ Welcome to Qtools' documentation!
    source/section4_thdoc
    source/section5_psdoc
    source/section6_plotfun
-   source/section7_disrs
+   source/section7_directS2S.rst
 
 Indices and tables
 ==================

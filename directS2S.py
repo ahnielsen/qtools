@@ -32,7 +32,7 @@ apply:
 	* Create and save files `ModalData.txt` and `SpectralData.txt` in the
 	  working directiory.
 	* Modify the user-defined parameters identified below and save.
-	* Execute this module from the command line or though an IDE application.
+	* Execute this module from the command line or through an IDE application.
 
 Calling DirectS2S as a function
 -------------------------------
@@ -62,7 +62,7 @@ import matplotlib.pyplot as plt
 import time
 from qtools.response_spectrum import ResponseSpectrum
 from qtools import config
-from directs2s.jiang_15 import j15_main
+from qtools import ds2smods as dsm
 
 if __name__ == '__main__':
 
@@ -145,8 +145,8 @@ def directS2S_main(method, ND, OD, z0, ZMIN, INRES, **kwargs):
 		else:
 			GT = 'H'
 
-		SA_ISRS = j15_main(SAb, fb, zb, fp, zp, gam, phi, z0, OD, ND, INRES,
-					 fc, GT)
+		SA_ISRS = dsm.j15_main(SAb, fb, zb, fp, zp, gam, phi, z0, OD, ND,
+						 INRES, fc, GT)
 	else:
 		raise ValueError('Method {} is not supported.'.format(method))
 	

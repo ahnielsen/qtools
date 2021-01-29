@@ -15,8 +15,8 @@ from scipy.integrate import odeint
 from scipy import interpolate
 from math import exp, log, log10, pi, sqrt, floor, sin, cos, isclose
 from pathlib import Path
-from .systems import vis1, sld
-from . import config
+from qtools.systems import vis1, sld
+from qtools import config
 try:
 	from .dlls import auxforsubs
 except ModuleNotFoundError:
@@ -496,7 +496,7 @@ def meanrs(rslist, kind='loglin', sd_extrapolate=True, label='_nolegend_',
 
 
 @config.set_module('qtools')
-def envelope(rslist, rs2=None, option=0, kind='loglin', radp=False,
+def envelope(rslist, option=0, kind='loglin', radp=False,
 			  sd_extrapolate=True):
 	"""
 	Compute the envelope of two or more response spectra.
@@ -507,10 +507,6 @@ def envelope(rslist, rs2=None, option=0, kind='loglin', radp=False,
 		A list containing two or more instances of ResponseSpectrum. This
 		first argument can also be a single instance of ResponseSpectrum (for
 		backwards compatibility only).
-	rs2 : an instance of ResponseSpectrum (optional, deprecated)
-		This spectrum is also included in the enveloping operation.
-		This second argument is provided for backwards compatibility only and
-		will be removed in version 2.0.
 	option : int, optional
 		Deprecated since version 1.1. Will be removed in version 2.0. This
 		parameter is not used for anything.
@@ -561,20 +557,6 @@ def envelope(rslist, rs2=None, option=0, kind='loglin', radp=False,
 	* when ``sd_extrapolate is False``, it is assumed that the spectral
 	  acceleration is constant for :math:`f < f_{min}`.
 	"""
-
-	if type(rslist) not in [list, ResponseSpectrum]:
-		raise TypeError('The first argument must be a list of response spectra'
-				  ' or a single instance of ResponseSpectrum.')
-	if type(rs2) not in [type(None), ResponseSpectrum]:
-		raise TypeError('The second argument, if provided, must be an'
-				  ' instance of ResponseSpectrum.')
-	if type(rslist) == ResponseSpectrum and type(rs2) == ResponseSpectrum:
-		rslist = [rslist, rs2]
-		config.vprint('WARNING: calling envelope() with two response spectra '
-				'as arguments, i.e. as envelope(rs1,rs2), is deprecated; '
-				'use envelope([rs1,rs2]) instead.')
-	elif type(rslist) == list and type(rs2) == ResponseSpectrum:
-		rslist.append(rs2)
 
 	if kind not in ('loglin','loglog'):
 		raise ValueError('The parameter kind must be either \'loglin\' or \'loglog\'')

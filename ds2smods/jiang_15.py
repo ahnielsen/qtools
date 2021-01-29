@@ -6,7 +6,7 @@ method.
 
 import numpy as np
 from math import pi, exp, log, log10, cos, sqrt
-from common import SAfun
+from .common import SAfun
 from qtools import config
 
 def j15_main(SAb, fb, zb, fp, zp, gam, phi, z0, OD, ND, INRES, fc, GT):
