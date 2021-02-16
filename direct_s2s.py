@@ -23,8 +23,14 @@ the third direction is the vertical direction.
 The second method does not require that the user distinguish between horizontal
 and vertical, and so the vertical direction can be any of the three principal
 diretions.
-A more thorough documentation is available as a standalone PDF document
-(EN/NU/TECH/TGN/031).
+A more complete documentation is available as a standalone PDF document.
+
+.. caution::
+	
+	None of the implemented methods are suitable for systems with high damping
+	values (greater than, say, 10%).
+	The Der Kiureghian (1981) method is not suitable for systems with closely
+	spaced modes.
 
 Using the module
 ----------------
@@ -64,7 +70,7 @@ function:
    if `mdlist` is not provided, then the function will look for
    the file `ModalData.txt` in the specified working directory. For more
    information about the format of `SpectralData.txt` and `ModalData.txt`,
-   see the DirectS2S Documentation.
+   see the standalone DirectS2S documentation.
 
 To execute DirectS2S, follow these instructions:
 
