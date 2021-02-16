@@ -17,7 +17,7 @@ from .response_spectrum import ec8_2004, dec8_2017, ieee693_2005, pml, eur_vhr
 from .energy_spectrum import calcei
 from .power_spectrum import calcps, calcfs, rs2ps, savesp
 from .plotfun import plotrs, plotps, plotth
-from .directS2S import directS2S
+from .direct_s2s import directS2S
 # Other
 from .config import version as __version__
 

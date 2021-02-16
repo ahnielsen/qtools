@@ -8,9 +8,55 @@ import numpy as np
 from math import pi, exp, log, log10, cos, sqrt
 from .common import SAfun
 from qtools import config
+from numba import jit
 
 def j15_main(SAb, fb, zb, fp, zp, gam, phi, z0, OD, ND, INRES, fc, GT):
+	"""
+	Main function for the direct spectrum-to-spectrum method developed by
+	Jiang et al. (2015).
 	
+	Parameters
+	----------
+	SAb : 3D NumPy array
+		Spectral accelerations at the base of the primary structure
+		(the input spectrum), with ``SAb[i,j,d]`` returning the spectral 
+		acceleration at frequency ``fb[i]`` and damping ratio ``zb[j]`` in
+		direction `d`.
+	fb : 1D NumPy array
+		Frequencies corresponding to the 1st axis in `SAb`.
+	zb : 1D NumPy array
+		Damping ratios corresponding to the 2nd axis in `SAb`.
+	fp : 1D NumPy array
+		Modal frequencies of the primary system.
+	zp : 1D NumPy array
+		Damping ratios of the primary system.
+	gam : 2D NumPy array
+		Participation factors, with ``gam[i,d]`` returning the participation
+		factor for mode `i` in direction `d`.
+	phi : 1D NumPy array
+		Modal displacements for DOF `k` (the point where the secondary
+		system is attached).
+	z0 : float
+		Damping ratio of secondary system.
+	OD : int, {0, 1, 2}
+		Output direction.
+	ND : int, {1, 2, 3}
+		Number of directions to take into account.
+	INRES : bool
+		If True, include the residual response. Otherwise ignore it.
+	fc : tuple of 2 floats
+		Corner frequencies. See the DirectS2S Documentation.
+	GT : str
+		Ground type ('H' for hard, 'S' for soft). Only relevant for vertical
+		excitation. Default 'H'.
+
+	Returns
+	-------
+	1D NumPy array
+		The in-structure spectral accelerations at the frequencies defined in
+		`fb`.
+	"""
+
 	Nfb = len(fb)
 	
 	# Initialise in-structure spectral acceleration array
@@ -32,7 +78,7 @@ def j15_main(SAb, fb, zb, fp, zp, gam, phi, z0, OD, ND, INRES, fc, GT):
 			# Append the residual modal displacement to the u array
 			ur = 1 - np.sum(u)
 			if ur < 0 or ur >= 1:
-				config.vprint('WARNING: with ur = {}, the redidual response is outside '
+				config.vprint('WARNING: with ur = {}, the residual response is outside '
 				  'the expected range (0 <= ur < 1)'.format(ur))
 				config.vprint('The residual response is ignored (ur = 0)')
 				ur = 0
@@ -49,12 +95,12 @@ def j15_main(SAb, fb, zb, fp, zp, gam, phi, z0, OD, ND, INRES, fc, GT):
 		for i in range(Nfb):
 			if INRES and d == OD:
 				# Compute the response vector
-				R = resp(SAp_r, SA0, u_r, fb[i], fp_r, z0, zp_r, fc, d, GT, INRES)
+				R = resp(SAp_r, SA0[i], u_r, fb[i], fp_r, z0, zp_r, fc, d, GT, INRES)
 				# Compute the double sum for direction d and add the result
 				DS = doublesum(R, fp_r, fb[i], zp_r, z0)
 			else:
 				# Compute the response vector
-				R = resp(SAp, SA0, u, fb[i], fp, z0, zp, fc, d, GT, INRES)
+				R = resp(SAp, SA0[i], u, fb[i], fp, z0, zp, fc, d, GT, INRES)
 				# Compute the double sum for direction d and add the result
 				DS = doublesum(R, fp, fb[i], zp, z0)
 			SA_ISRS[i] += DS
@@ -88,15 +134,17 @@ def AR(f, fc, z, d, GT):
 		
 	Notes
 	-----
-	This function is partially based on ....
+	This function is partially based on `Li et al. (2015)`_. For more
+	information, see the DirectS2S Documentation.
 	
 	References
 	----------
-	.. _Jiang et al. (2015):
-	
-	W Jiang, B Li, W-C Xie & MD Pandey, 2015: "Generate floor response spectra,
-	Part 1: Direct spectra-to-spectra method", Nuclear Engineering and Design,
-	**293**, pp. 525-546.
+	.. _Li et al. (2015):
+
+		Li, B; Jiang, W; Xie W-C; & Pandey, M.D., 2015: "Generate floor response
+		spectra, Part 2: Response spectra for equipment-structure resonance", 
+		*Nuclear Engineering and Design*, **293**, pp. 547-560
+		(http://dx.doi.org/10.1016/j.nucengdes.2015.05.033).
 
 	"""
 	
@@ -172,7 +220,7 @@ def resp(SAp, SA0, u, f0, fp, z0, zp, fc, d, GT, INRES):
 	for i in range(N):
 		if INRES and i == N-1:
 			# Residual response
-			# (TO-DO: this may be superfluous as AFi --> for r --> inf)
+			# (TO-DO: this may be superfluous as AFi --> 0 for r --> inf)
 			R[i] = u[i]*SA0
 		else:
 			# Normal response
@@ -187,6 +235,7 @@ def resp(SAp, SA0, u, f0, fp, z0, zp, fc, d, GT, INRES):
 
 	return R
 
+@jit(nopython=True)
 def doublesum(R, f, f0, z, z0):
 	"""
 	Compute the double sum.
@@ -217,41 +266,40 @@ def doublesum(R, f, f0, z, z0):
 		zi = z[i]
 		Ri = R[i]
 		SS += Ri**2
-		for j in range(i+1,N):
-			rj = f[j]/f0
-			zj = z[j]
-			Rj = R[j]
-			# Compute correlation coefficient
-			Dij1 = 1 - 2*rj**2 + rj**4 + 4*z0*zj*rj + 4*z0*zj*rj**3 + 4*z0**2*rj**2 + 4*zj**2*rj**2
-			Dij2 = 1 - 2*ri**2 + ri**4 + 4*z0*zi*ri + 4*z0*zi*ri**3 + 4*z0**2*ri**2 + 4*zi**2*ri**2
-			Dij3 = (ri**2-rj**2)**2 + 4*zi*zj*ri*rj*(ri**2+rj**2) + 4*ri**2*rj**2*(zi**2+zj**2)
-			Cij0 = (1 - ri**2 - rj**2 + ri**2*rj**2 + 4*zi*zj*ri*rj)*Dij3
-			Cij1 = 4*(2*zi*ri + 2*zj*rj + 8*zi*zj*ri*rj*(zi*ri+zj*rj) - 4*(zi*ri**3+zj*rj**3)
-					  + 8*zi**3*ri**3 + 8*zj**3*rj**3 - 2*ri*rj*(zi*rj**3+zj*ri**3)
-					  + 8*zi*zj*ri*rj*(zi*ri**3+zj*rj**3) + 4*ri**2*rj**2*(zi*ri+zj*rj)
-					  - 8*ri**2*rj**2*(zi**3*ri+zj**3*rj) - 8*zi*zj*ri**2*rj**2*(zi*rj+zj*ri)
-					  + 32*zi**2*zj**2*ri**2*rj**2*(zi*ri+zj*rj) + ri*rj*(zi*rj**5+zj*ri**5)
-					  + ri**2*rj**2*(zi*ri**3+zj*rj**3) + 4*zi*zj*ri**2*rj**2*(zi*rj**3+zj*ri**3)
-					  - 2*ri**3*rj**3*(zi*rj+zj*ri) + 4*ri**3*rj**3*(zi**3*rj+zj**3*ri)
-					  + 8*zi*zj*ri**3*rj**3*(zi*ri+zj*rj))
-			Cij2 = 4*(8*zi**2*ri**2 + 8*zj**2*rj**2 + 16*zi*zj*ri*rj + 64*zi**2*zj**2*ri**2*rj**2
-					  - 4*zi*zj*ri*rj*(ri**2+rj**2) + 32*zi*zj*ri*rj*(zi**2*ri**2+zj**2*rj**2)
-					  + 6*ri**2*rj**2 - 12*ri**2*rj**2*(zi**2+zj**2) - 3*(ri**4+rj**4)
-					  + 8*zi*zj*ri*rj*(ri**4+rj**4) - ri**2*rj**2*(ri**2+rj**2) + 8*zi**2*ri**4
-					  + 8*zj**2*rj**4 + 4*ri**2*rj**2*(zi**2+zj**2)*(ri**2+rj**2)
-					  + 16*zi**2*zj**2*ri**2*rj**2*(ri**2+rj**2) + 16*zi*zj*ri**3*rj**3*(zi**2+zj**2)
-					  + ri**6 + rj**6)
-			Cij3 = 16*(8*zi*zj*ri*rj*(zi*ri+zj*rj) + 2*zi*ri**3 + 2*zj*rj**3 + ri*rj*(zi*rj**3+zj*ri**3)
-					   + 4*zi*zj*ri*rj*(zi*ri**3+zj*rj**3) - 2*ri**2*rj**2*(zi*ri+zj*rj)
-					   + 4*ri**2*rj**2*(zi**3*ri+zj**3*rj) + 8*zi*zj*ri**2*rj**2*(zi*rj+zj*ri)
-					   + zi*ri**5 + zj*rj**5)
-			Cij4 = 16*Dij3
-			aij = 1/(Dij1*Dij2*Dij3)*(Cij0+Cij1*z0+Cij2*z0**2+Cij3*z0**3+Cij4*z0**4)
-			bi = ((z0+4*z0**2*zi*ri+4*z0*zi**2*ri**2+zi*ri**3)/
-				  (zi*ri**3*(1-2*ri**2+ri**4+4*z0*zi*ri+4*(zi**2+z0**2)*ri**2+4*z0*zi*ri**3)))
-			bj = ((z0+4*z0**2*zj*rj+4*z0*zj**2*rj**2+zj*rj**3)/
-				  (zj*rj**3*(1-2*rj**2+rj**4+4*z0*zj*rj+4*(zj**2+z0**2)*rj**2+4*z0*zj*rj**3)))
-			rhoij = aij/sqrt(bi*bj)
-			SS += 2*rhoij*Ri*Rj
+		rj = f[i+1:]/f0
+		zj = z[i+1:]
+		Rj = R[i+1:]
+		# Compute correlation coefficient
+		Dij1 = 1 - 2*rj**2 + rj**4 + 4*z0*zj*rj + 4*z0*zj*rj**3 + 4*z0**2*rj**2 + 4*zj**2*rj**2
+		Dij2 = 1 - 2*ri**2 + ri**4 + 4*z0*zi*ri + 4*z0*zi*ri**3 + 4*z0**2*ri**2 + 4*zi**2*ri**2
+		Dij3 = (ri**2-rj**2)**2 + 4*zi*zj*ri*rj*(ri**2+rj**2) + 4*ri**2*rj**2*(zi**2+zj**2)
+		Cij0 = (1 - ri**2 - rj**2 + ri**2*rj**2 + 4*zi*zj*ri*rj)*Dij3
+		Cij1 = 4*(2*zi*ri + 2*zj*rj + 8*zi*zj*ri*rj*(zi*ri+zj*rj) - 4*(zi*ri**3+zj*rj**3)
+				  + 8*zi**3*ri**3 + 8*zj**3*rj**3 - 2*ri*rj*(zi*rj**3+zj*ri**3)
+				  + 8*zi*zj*ri*rj*(zi*ri**3+zj*rj**3) + 4*ri**2*rj**2*(zi*ri+zj*rj)
+				  - 8*ri**2*rj**2*(zi**3*ri+zj**3*rj) - 8*zi*zj*ri**2*rj**2*(zi*rj+zj*ri)
+				  + 32*zi**2*zj**2*ri**2*rj**2*(zi*ri+zj*rj) + ri*rj*(zi*rj**5+zj*ri**5)
+				  + ri**2*rj**2*(zi*ri**3+zj*rj**3) + 4*zi*zj*ri**2*rj**2*(zi*rj**3+zj*ri**3)
+				  - 2*ri**3*rj**3*(zi*rj+zj*ri) + 4*ri**3*rj**3*(zi**3*rj+zj**3*ri)
+				  + 8*zi*zj*ri**3*rj**3*(zi*ri+zj*rj))
+		Cij2 = 4*(8*zi**2*ri**2 + 8*zj**2*rj**2 + 16*zi*zj*ri*rj + 64*zi**2*zj**2*ri**2*rj**2
+				  - 4*zi*zj*ri*rj*(ri**2+rj**2) + 32*zi*zj*ri*rj*(zi**2*ri**2+zj**2*rj**2)
+				  + 6*ri**2*rj**2 - 12*ri**2*rj**2*(zi**2+zj**2) - 3*(ri**4+rj**4)
+				  + 8*zi*zj*ri*rj*(ri**4+rj**4) - ri**2*rj**2*(ri**2+rj**2) + 8*zi**2*ri**4
+				  + 8*zj**2*rj**4 + 4*ri**2*rj**2*(zi**2+zj**2)*(ri**2+rj**2)
+				  + 16*zi**2*zj**2*ri**2*rj**2*(ri**2+rj**2) + 16*zi*zj*ri**3*rj**3*(zi**2+zj**2)
+				  + ri**6 + rj**6)
+		Cij3 = 16*(8*zi*zj*ri*rj*(zi*ri+zj*rj) + 2*zi*ri**3 + 2*zj*rj**3 + ri*rj*(zi*rj**3+zj*ri**3)
+				   + 4*zi*zj*ri*rj*(zi*ri**3+zj*rj**3) - 2*ri**2*rj**2*(zi*ri+zj*rj)
+				   + 4*ri**2*rj**2*(zi**3*ri+zj**3*rj) + 8*zi*zj*ri**2*rj**2*(zi*rj+zj*ri)
+				   + zi*ri**5 + zj*rj**5)
+		Cij4 = 16*Dij3
+		aij = 1/(Dij1*Dij2*Dij3)*(Cij0+Cij1*z0+Cij2*z0**2+Cij3*z0**3+Cij4*z0**4)
+		bi = ((z0+4*z0**2*zi*ri+4*z0*zi**2*ri**2+zi*ri**3)/
+			  (zi*ri**3*(1-2*ri**2+ri**4+4*z0*zi*ri+4*(zi**2+z0**2)*ri**2+4*z0*zi*ri**3)))
+		bj = ((z0+4*z0**2*zj*rj+4*z0*zj**2*rj**2+zj*rj**3)/
+			  (zj*rj**3*(1-2*rj**2+rj**4+4*z0*zj*rj+4*(zj**2+z0**2)*rj**2+4*z0*zj*rj**3)))
+		rhoij = aij/np.sqrt(bi*bj)
+		SS += 2*Ri*np.sum(rhoij*Rj)
 
 	return SS

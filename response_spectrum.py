@@ -122,7 +122,8 @@ class ResponseSpectrum:
 					'have the same length, have lengths {} and {}'.format(len(x),len(y)))
 		if min(np.diff(x)) <= 0:
 			raise ValueError('The argument x must be an array of monotonically '
-					'increasing values.')
+					'increasing values. This error typically arises when two '
+					'closely spaced frequencies become identical due to rounding.')
 
 		if abscissa == 'f':
 			self.f = x

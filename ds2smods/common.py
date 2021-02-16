@@ -45,8 +45,8 @@ def SAfun(SAi, fi, zi, f, z):
 				   ' are not the right size.')
 	
 	# Interpolate along frequency axis (axis 0)
-	SAzi = interpolate.interp1d(np.log10(fi), SAi, axis=0, bounds_error=True, 
-							 assume_sorted=True)(np.log10(f))
+	SAzi = interpolate.interp1d(np.log10(fi), SAi, axis=0, bounds_error=False, 
+							fill_value='extrapolate', assume_sorted=True)(np.log10(f))
 
 	# Interpolate along damping axis (axis 1)
 	SA = np.empty(Nf)
