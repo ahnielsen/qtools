@@ -28,8 +28,7 @@ class Spectrum:
 	unit : str, optional
 		Unit of the spectral ordinates (e.g. `g**2*s`). Used only for plotting.
 	label : str
-		A user-defined label (inherited from the time history when the calcps()
-		method is used).
+		A user-defined label.
 	fmt : str
 		The line format to be used when plotting this spectrum (see notes on
 		`fmt` parameter in the `Matplotlib documentation
@@ -62,18 +61,14 @@ class PowerSpectrum(Spectrum):
 	Parameters
 	----------
 	f : 1D NumPy array
-		Frequency in Hz
-	Sk : 1D NumPy array
-		Double-sided power spectrum (before smoothing) as a function of
-		circular frequency (rad/s)
-	Sw : 1D Numpy array
-		Double-sided power spectrum (after smoothing) as a function of circular
-		frequency (rad/s)
+		Frequency in Hz.
+	Wf : 1D Numpy array
+		Single-sided power spectrum as a function of frequency (Hz).
 	unit : str, optional
 		Unit of the spectral ordinates (e.g. `g**2*s`). Used only for plotting.
 	label : str, optional
-		A user-defined label (inherited from the time history when the calcps()
-		method is used)
+		A user-defined label (inherited from the time history when the
+		:func:`.calcps` function is used).
 	fmt : str, optional
 		The line format to be used when plotting this spectrum (see notes on
 		`fmt` parameter in the `Matplotlib documentation
@@ -83,15 +78,8 @@ class PowerSpectrum(Spectrum):
 	----------
 	f : 1D NumPy array
 		Frequency in Hz.
-	Sk : 1D NumPy array
-		Double-sided power spectrum (before smoothing) as a function of
-		circular frequency (rad/s).
-	Sw : 1D Numpy array
-		Double-sided power spectrum (after smoothing) as a function of circular
-		frequency (rad/s).
 	Wf : 1D NumPy array
-		Single-sided power spectrum (after smoothing) as a function of
-		frequency (Hz). This is computed as :math:`W_f = 4\pi S_w`.
+		Single-sided power spectrum as a function of frequency (Hz).
 	unit : str
 		Unit of the spectral ordinates (e.g. `g**2*s`). Used only for plotting.
 	label : str
@@ -103,12 +91,10 @@ class PowerSpectrum(Spectrum):
 		<https://matplotlib.org/api/_as_gen/matplotlib.pyplot.plot.html>`_).
 
 	"""
-	def __init__(self, f, Sk, Sw, unit=None, label='_nolegend_', fmt=''):
+	def __init__(self, f, Wf, unit=None, label='_nolegend_', fmt=''):
 
 		Spectrum.__init__(self, f, unit=unit, label=label, fmt=fmt)
-		self.Sk = Sk
-		self.Sw = Sw
-		self.Wf = 4*pi*self.Sw
+		self.Wf = Wf
 
 	def rms(self):
 		"""
@@ -139,8 +125,8 @@ class FourierSpectrum(Spectrum):
 	unit : str, optional
 		Unit of the spectrum (e.g. `g`). Used only for plotting.
 	label : str, optional
-		A user-defined label (inherited from the time history when the calcps()
-		method is used)
+		A user-defined label (inherited from the time history when the
+		:func:`.calcfs` function is used)
 	fmt : str, optional
 		The line format to be used when plotting this spectrum (see notes on
 		`fmt` parameter in the `Matplotlib documentation
@@ -209,9 +195,11 @@ def calcps(th):
 	# Initial checks etc.
 	config.vprint('Computing power spectum for time history {}'.format(th.label))
 	if type(th) != time_history.TimeHistory:
-		raise TypeError('The th parameter must be specified as an instance of class TimeHistory')
+		raise TypeError('The th parameter must be specified as an instance of'
+				  ' class TimeHistory')
 	if not th.dt_fixed:
-		raise ValueError('To compute a power spectrum, a time history must be defined with fixed time step')
+		raise ValueError('To compute a power spectrum, a time history must be'
+				   ' defined with fixed time step')
 	if th.ordinate == 'a':
 		unit = 'm**2/s**3'
 	elif th.ordinate == 'v':
@@ -219,8 +207,8 @@ def calcps(th):
 	elif th.ordinate == 'd':
 		unit = 'm**2*s'
 	else:
-		config.vprint('WARNING: the time history does not represent acceleration,'
-				' velocity or displacement.')
+		config.vprint('WARNING: the time history does not represent '
+				'acceleration, velocity or displacement.')
 
 	# Ensure time history has zero mean
 	th.zero_mean()
@@ -268,9 +256,12 @@ def calcps(th):
 			elif i >= 0 and i < K-1:
 				sswkm += Sk[i]
 		Sw[k] = 1/(2*ns+1)*sswkm
+		
+	# Convert to single-sided spectrum
+	Wf = 4*pi*Sw
 
 	# Create and return the spectrum
-	ps = PowerSpectrum(f, Sk, Sw, unit=unit)
+	ps = PowerSpectrum(f, Wf, unit=unit)
 	ps.setLabel(th.label)
 	return ps
 
@@ -301,9 +292,11 @@ def calcfs(th, M=None):
 	"""
 	# Initial checks etc.
 	if type(th) != time_history.TimeHistory:
-		raise TypeError('The th parameter must be specified as an instance of class TimeHistory')
+		raise TypeError('The th parameter must be specified as an instance of'
+				  ' class TimeHistory')
 	if not th.dt_fixed:
-		raise ValueError('To compute a Fourier spectrum, a time history must be defined with fixed time step')
+		raise ValueError('To compute a Fourier spectrum, a time history must'
+				   ' be defined with fixed time step')
 
 	# Determine required size of array
 	if M is None:
@@ -317,13 +310,17 @@ def calcfs(th, M=None):
 	f = np.fft.rfftfreq(N, d=th.dt)
 
 	# Output
-	config.vprint('Converting time history {} into a Fourier spectrum.'.format(th.label))
+	config.vprint('Converting time history {} into a Fourier'
+			   ' spectrum.'.format(th.label))
 	if L == 0:
-		config.vprint('The original length of the time history is used with {} data points'.format(N))
+		config.vprint('The original length of the time history is used with'
+				' {} data points'.format(N))
 	elif L > 0:
-		config.vprint('Added {} zeros ({:5.2f} sec) to the end of the time history.'.format(L,L*th.dt))
+		config.vprint('Added {} zeros ({:5.2f} sec) to the end of the time'
+				' history.'.format(L,L*th.dt))
 	else:
-		config.vprint('WARNING: Removed {} data points from the end of the time history.'.format(L))
+		config.vprint('WARNING: Removed {} data points from the end of the'
+				' time history.'.format(L))
 	config.vprint('------------------------------------------')
 
 	# Create and return the spectrum
@@ -383,7 +380,8 @@ def savesp(sp, fname, ordinate, fmt='%.18e', delimiter=' ',
 			head2 = 'w [rad/s], Sk [{}]'.format(sp.unit)
 			out = np.array([2*pi*sp.f,sp.Sk])
 		else:
-			config.vprint('WARNING: could not recognise the parameter ordinate = {}'.format(ordinate))
+			config.vprint('WARNING: could not recognise the parameter'
+				 ' ordinate = {}'.format(ordinate))
 			config.vprint('No data has been save to file')
 		return
 	else:
@@ -437,7 +435,8 @@ def rs2ps(rs, Mw, R, region, Td=None, method='V75'):
 	"""
 
 	if PYRVT_PRESENT:
-		config.vprint('WARNING: Remember to protect the main module with an if __name__ == \'__main__\': statement')
+		config.vprint('WARNING: Remember to protect the main module with'
+				' an if __name__ == \'__main__\': statement')
 		e = {}
 		e['psa'] = rs.sa
 		e['magnitude'] = Mw

@@ -6,8 +6,8 @@ See README.md for further details.
 """
 
 import matplotlib.pyplot as plt
-from math import pi
-from . import config
+from qtools import config
+from qtools.power_spectrum import PowerSpectrum, FourierSpectrum
 
 @config.set_module('qtools')
 def plotrs(*args,**kwargs):
@@ -85,7 +85,8 @@ def plotrs(*args,**kwargs):
 	elif xaxis == 'T':
 		plt.xlabel('Period [s]')
 	else:
-		raise ValueError('{} is not a valid value for the x-axis on a response spectrum plot'.format(xaxis))
+		raise ValueError('{} is not a valid value for the x-axis on a'
+				   ' response spectrum plot'.format(xaxis))
 	if yaxis == 'sa':
 		plt.ylabel('Spectral acceleration [g]')
 	elif yaxis == 'sv':
@@ -95,7 +96,8 @@ def plotrs(*args,**kwargs):
 	elif yaxis == 'ei':
 		plt.ylabel('Spectral input energy [J/kg]')
 	else:
-		raise ValueError('{} is not a valid value for the y-axis on a response spectrum plot'.format(yaxis))
+		raise ValueError('{} is not a valid value for the y-axis on a'
+				   ' response spectrum plot'.format(yaxis))
 
 	for rs in args:
 		x = rs.__dict__[xaxis]
@@ -132,22 +134,20 @@ def plotrs(*args,**kwargs):
 	plt.show()
 
 @config.set_module('qtools')
-def plotps(*args,**kwargs):
-	"""Function for plotting instances of class PowerSpectrum.
+def plotps(*args, **kwargs):
+	"""Function for plotting instances of class PowerSpectrum and
+	FourierSpectrum.
 
 	Parameters
 	----------
 	*args
-		Any number of power spectra
+		Any number of power spectra or Fourier spectra. All spectra must be
+		of the same type.
 	**kwargs
 		Optional parameters (see below under **Other parameters**)
 
 	Other parameters
 	----------------
-	xaxis : {'f', 'T', 'w'}
-		Quantity to plot on the x-axis. Default 'f'.
-	yaxis : {'Sw', 'Sk', 'Wf', 'X'}
-		Quantity to plot on the y-axis. Default 'Wf'.
 	xscale : {'log', 'lin'}
 		Specifies the scale on the x-axis (logarithmic or linear).
 		Default 'lin'.
@@ -160,18 +160,24 @@ def plotps(*args,**kwargs):
 		:func:`matplotlib.pyplot.savefig`.
 	dpi : int
 		Dots per inch to use if plot is saved to file. Default None.
+	right : float
+		Sets the upper limit on the x-axis.
+	left : float
+		Sets the lower limit on the x-axis.
+	top : float
+		Sets the upper limit on the y-axis.
+	bottom : float
+		Sets the lower limit on the y-axis.
 
 	Examples
 	--------
 	See :func:`qtools.plotrs`.
 	"""
 
-	xaxis = kwargs.get('xaxis','f')
-	yaxis = kwargs.get('yaxis','Wf')
-	xscale = kwargs.get('xscale','lin')
-	show_legend = kwargs.get('legend',False)
-	filename = kwargs.get('filename','')
-	dpi = kwargs.get('dpi',None)
+	xscale = kwargs.get('xscale', 'lin')
+	show_legend = kwargs.get('legend', False)
+	filename = kwargs.get('filename', '')
+	dpi = kwargs.get('dpi', None)
 
 	# Set the appropriate type of plot
 	if xscale == 'log':
@@ -179,43 +185,32 @@ def plotps(*args,**kwargs):
 	elif xscale == 'lin':
 		plot = plt.plot
 
-	# Check the validity of the arguments and set the labels on the axes
-	if xaxis == 'f' and (yaxis == 'Sw' or yaxis == 'Sk'):
-		config.vprint('WARNING: with yaxis = \'{}\', the x-axis will be shown '
-				'as \'w\' (circular frequency)'.format(yaxis))
-		xaxis = 'w'
-	if xaxis == 'w' and (yaxis == 'Wf' or yaxis == 'X'):
-		config.vprint('WARNING: with yaxis = \'{}\', the x-axis will be shown '
-				'as \'f\' (frequency)'.format(yaxis))
-		xaxis = 'f'
-	if xaxis == 'w':
-		plt.xlabel('Frequency [rad/s]')
-		sf = 2*pi
-		xaxis = 'f'
-	elif xaxis == 'f':
-		plt.xlabel('Frequency [Hz]')
-		sf = 1
-	else:
-		raise ValueError('{} is not a valid value for the x-axis on a power spectrum plot'.format(xaxis))
-	if yaxis == 'X':
+	plt.xlabel('Frequency [Hz]')
+
+	# Check the validity of the arguments and set the labels on the y-axis
+	if all([isinstance(ps, FourierSpectrum) for ps in args]):
 		plt.ylabel('Fourier amplitude [{}]'.format(args[0].unit))
-		if len(set([ps.unit for ps in args])) > 1:
-			config.vprint('WARNING: in plotps, it is assumed that all spectra have the same units.')
-	elif yaxis == 'Wf' or yaxis == 'Sk' or yaxis == 'Sw':
+		yaxis = 'X'
+	elif all([isinstance(ps, PowerSpectrum) for ps in args]):
 		plt.ylabel('Spectral power density [{}]'.format(args[0].unit))
-		if len(set([ps.unit for ps in args])) > 1:
-			config.vprint('WARNING: in plotps, it is assumed that all spectra have the same units.')
+		yaxis = 'Wf'
 	else:
-		raise ValueError('{} is not a valid value for the y-axis on a response spectrum plot'.format(yaxis))
+		raise ValueError('The arguments provided to plotps are not all of the'
+				   ' same type (either FourierSpectrum or PowerSpectrum)')
+	if len(set([ps.unit for ps in args])) > 1:
+		config.vprint('WARNING: in plotps, it seems that some spectra have'
+			 ' different units.')
 
 	# Create the plots
 	for ps in args:
-		x = sf*ps.__dict__[xaxis]
-		y = ps.__dict__[yaxis]
-		if ps.fmt == '_default_':
-			plot(x, y, label=ps.label)
+		if yaxis=='X':
+			y = ps.abs()
 		else:
-			plot(x, y, ps.fmt, label=ps.label)
+			y = ps.Wf
+		if ps.fmt == '_default_':
+			plot(ps.f, y, label=ps.label)
+		else:
+			plot(ps.f, y, ps.fmt, label=ps.label)
 
 	# Set upper limit on x-axis if specified
 	if 'right' in kwargs:
@@ -239,7 +234,7 @@ def plotps(*args,**kwargs):
 	plt.grid(color='0.75')
 
 	if len(filename) > 0:
-		plt.savefig(filename,dpi=dpi)
+		plt.savefig(filename, dpi=dpi)
 
 	plt.show()
 
@@ -296,19 +291,25 @@ def plotth(*args,**kwargs):
 
 	for th in args:
 		if xscale == 'log':
-			plt.semilogx(th.time,th.data,th.fmt,label=th.label)
+			plt.semilogx(th.time, th.data, th.fmt, label=th.label)
 		elif xscale == 'lin':
-			plt.plot(th.time,th.data,th.fmt,label=th.label)
+			plt.plot(th.time, th.data, th.fmt, label=th.label)
 
 	# Set upper limit on x-axis if specified
 	if 'right' in kwargs:
-		if type(kwargs['right']) is float:
-			plt.xlim(right=kwargs['right'])
+		plt.xlim(right=kwargs['right'])
 
 	# Set lower limit on x-axis if specified
 	if 'left' in kwargs:
-		if type(kwargs['left']) is float:
-			plt.xlim(left=kwargs['left'])
+		plt.xlim(left=kwargs['left'])
+	
+	# Set upper limit on y-axis if specified
+	if 'top' in kwargs:
+		plt.ylim(top=kwargs['top'])
+
+	# Set lower limit on y-axis if specified
+	if 'bottom' in kwargs:
+		plt.ylim(bottom=kwargs['bottom'])
 
 	if show_legend:
 		plt.legend(loc='best')
