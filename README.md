@@ -110,6 +110,7 @@ First fully documented version.
   documentation.
 - There is still a stand-alone documentation for `qt.direct_s2s`, which is under development.
   However, a working documentation has also been added to the main Qtools documentation.
+- In `qt.plotps`, grids are now added to all plots.
 
 
 Author

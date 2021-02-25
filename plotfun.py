@@ -213,9 +213,9 @@ def plotps(*args,**kwargs):
 		x = sf*ps.__dict__[xaxis]
 		y = ps.__dict__[yaxis]
 		if ps.fmt == '_default_':
-			plot(x,y,label=ps.label)
+			plot(x, y, label=ps.label)
 		else:
-			plot(x,y,ps.fmt,label=ps.label)
+			plot(x, y, ps.fmt, label=ps.label)
 
 	# Set upper limit on x-axis if specified
 	if 'right' in kwargs:
@@ -235,6 +235,8 @@ def plotps(*args,**kwargs):
 
 	if show_legend:
 		plt.legend(loc='best')
+	
+	plt.grid(color='0.75')
 
 	if len(filename) > 0:
 		plt.savefig(filename,dpi=dpi)
