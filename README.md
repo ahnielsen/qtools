@@ -112,6 +112,14 @@ First fully documented version.
   However, a working documentation has also been added to the main Qtools documentation.
 - In `qt.plotps`, grids are now added to all plots.
 
+### Version 2.1 (March 2021)
+
+- Multiple updates to the two plotting functions `qt.plotrs` and `qt.plotps` providing greater user
+  control over appearance and style.
+- A power spectrum is now defined purely as a one-sided smoothed function of frequency. In
+  principle, this constitutes a major version update. However, it is surmised that the older
+  implementation (in which a power spectrum was principally defined as a double-sided smoothed or
+  unsmoothed function) was not used; therefore, this change is included in a minor version update.
 
 Author
 ------

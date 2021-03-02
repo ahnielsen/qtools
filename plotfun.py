@@ -6,8 +6,21 @@ See README.md for further details.
 """
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
 from qtools import config
 from qtools.power_spectrum import PowerSpectrum, FourierSpectrum
+from math import log10
+
+# Define a formatter for tick labels
+def format_func(x, pos):
+	"""
+	Formats tick labels like Excel's General format.
+	"""
+	if x < 1:
+		pr = int(-log10(x))
+		return '{val:.{prec}f}'.format(val=x, prec=pr)
+	else:
+		return '{val:.0f}'.format(val=x)
 
 @config.set_module('qtools')
 def plotrs(*args,**kwargs):
@@ -22,6 +35,10 @@ def plotrs(*args,**kwargs):
 
 	Other parameters
 	----------------
+	style : str
+		Plot style. See `Matplotlib style sheets reference <https://
+		matplotlib.org/stable/gallery/style_sheets/
+		style_sheets_reference.html>`_ for available styles. Default `default`.
 	xaxis : {'f', 'T'}
 		Quantity to plot on the x-axis. Default 'f'.
 	yaxis : {'sa', 'sv', 'sd'}
@@ -29,8 +46,11 @@ def plotrs(*args,**kwargs):
 	xscale : {'log', 'lin'}
 		Specifies the scale on the x-axis (logarithmic or linear).
 		Default 'log'.
-	legend : bool
-		Display the legend on the plot. Default False.
+	legend : dict (or bool)
+		The keys in this dictionary will be used to set the arguments in a
+		call to :func:`matplotlib.pyplot.legend`. If this parameter is not
+		provided, the legend will not be shown. This parameter can also be set
+		to True to show the legend with default parameters ``{'loc': 'best'}``.
 	filename : str
 		If given, save plot to file using `filename` as file name. The file
 		name should include the desired extension (e.g. 'png' or 'svg'), from
@@ -46,6 +66,10 @@ def plotrs(*args,**kwargs):
 		Sets the upper limit on the y-axis.
 	bottom : float
 		Sets the lower limit on the y-axis.
+	grid : dict
+		The keys in this dictionary will be used to set the arguments in a
+		call to :func:`matplotlib.pyplot.grid`. Default: ``{'which': 'major',
+		'color': '0.75'}``
 
 	Notes
 	-----
@@ -66,35 +90,53 @@ def plotrs(*args,**kwargs):
 
 	"""
 	# Get the parameters
-	xaxis = kwargs.get('xaxis','f')
-	yaxis = kwargs.get('yaxis','sa')
-	xscale = kwargs.get('xscale','log')
-	show_legend = kwargs.get('legend',False)
-	filename = kwargs.get('filename','')
-	dpi = kwargs.get('dpi',None)
+	style = kwargs.get('style', 'default')
+	xaxis = kwargs.get('xaxis', 'f')
+	yaxis = kwargs.get('yaxis', 'sa')
+	xscale = kwargs.get('xscale', 'log')
+	yscale = kwargs.get('yscale', 'lin')
+	if 'legend' in kwargs:
+		show_legend = True
+		legend = {'loc': 'best'}
+		if isinstance(kwargs['legend'], dict):
+			legend = kwargs['legend']
+	else:
+		show_legend = False
+	filename = kwargs.get('filename', '')
+	dpi = kwargs.get('dpi', None)
+	grid = kwargs.get('grid', {'which': 'major', 'color': '0.75'})
+
+	plt.style.use(style)
+
+	# Get the axes of a new plot
+	fig, ax = plt.subplots()
 
 	# Set the appropriate type of plot
-	if xscale == 'log':
-		plot = plt.semilogx
-	elif xscale == 'lin':
-		plot = plt.plot
+	if xscale == 'log' and yscale == 'log':
+		plot = ax.loglog
+	elif xscale == 'log' and yscale == 'lin':
+		plot = ax.semilogx
+	elif xscale == 'lin' and yscale == 'log':
+		plot = ax.semilogy
+	elif xscale == 'lin' and yscale == 'lin':
+		plot = ax.plot
 
 	# Set the labels on the axes
 	if xaxis == 'f':
-		plt.xlabel('Frequency [Hz]')
+		ax.set_xlabel('Frequency [Hz]')
 	elif xaxis == 'T':
-		plt.xlabel('Period [s]')
+		ax.set_xlabel('Period [s]')
 	else:
 		raise ValueError('{} is not a valid value for the x-axis on a'
 				   ' response spectrum plot'.format(xaxis))
 	if yaxis == 'sa':
-		plt.ylabel('Spectral acceleration [g]')
+		ax.set_ylabel('Spectral acceleration [g]')
 	elif yaxis == 'sv':
-		plt.ylabel('Spectral velocity [m/s]')
+		ax.set_ylabel('Spectral velocity [m/s]')
 	elif yaxis == 'sd':
-		plt.ylabel('Spectral displacement [m]')
+		ax.set_ylabel('Spectral displacement [m]')
 	elif yaxis == 'ei':
-		plt.ylabel('Spectral input energy [J/kg]')
+		ax.set_ylabel('Spectral input energy [J/kg]')
 	else:
 		raise ValueError('{} is not a valid value for the y-axis on a'
 				   ' response spectrum plot'.format(yaxis))
@@ -109,27 +151,36 @@ def plotrs(*args,**kwargs):
 
 	# Set upper limit on x-axis if specified
 	if 'right' in kwargs:
-		plt.xlim(right=kwargs['right'])
+		ax.set_xlim(right=kwargs['right'])
 
 	# Set lower limit on x-axis if specified
 	if 'left' in kwargs:
-		plt.xlim(left=kwargs['left'])
+		ax.set_xlim(left=kwargs['left'])
 
 	# Set upper limit on y-axis if specified
 	if 'top' in kwargs:
-		plt.ylim(top=kwargs['top'])
+		ax.set_ylim(top=kwargs['top'])
 
 	# Set lower limit on y-axis if specified
 	if 'bottom' in kwargs:
-		plt.ylim(bottom=kwargs['bottom'])
+		ax.set_ylim(bottom=kwargs['bottom'])
 
 	if show_legend:
-		plt.legend(loc='best')
-
-	plt.grid(color='0.75')
-
+		ax.legend(**legend)
+	
+	ax.grid(**grid)
+	
+	if xscale == 'log':
+		ax.xaxis.set_major_formatter(FuncFormatter(format_func))
+		# Note: in Matplotlib version 3.3.4, the following call should be valid
+		#ax.xaxis.set_major_formatter(format_func)
+	if yscale == 'log':
+		ax.yaxis.set_major_formatter(FuncFormatter(format_func))
+		# Note: in Matplotlib version 3.3.4, the following call should be valid
+		#ax.yaxis.set_major_formatter(format_func)
+	
 	if len(filename) > 0:
-		plt.savefig(filename, dpi=dpi)
+		plt.savefig(filename, dpi=dpi, bbox_inches='tight')
 
 	plt.show()
 
@@ -148,11 +199,18 @@ def plotps(*args, **kwargs):
 
 	Other parameters
 	----------------
+	style : str
+		Plot style. See `Matplotlib style sheets reference <https://
+		matplotlib.org/stable/gallery/style_sheets/
+		style_sheets_reference.html>`_ for available styles. Default `default`.
 	xscale : {'log', 'lin'}
 		Specifies the scale on the x-axis (logarithmic or linear).
 		Default 'lin'.
-	legend : bool
-		Display the legend on the plot. Default False.
+	legend : dict (or bool)
+		The keys in this dictionary will be used to set the arguments in a
+		call to :func:`matplotlib.pyplot.legend`. If this parameter is not
+		provided, the legend will not be shown. This parameter can also be set
+		to True to show the legend with default parameters ``{'loc': 'best'}``
 	filename : str
 		If given, save plot to file using `filename` as file name. The file
 		name should include the desired extension (e.g. 'png' or 'svg'), from
@@ -168,31 +226,54 @@ def plotps(*args, **kwargs):
 		Sets the upper limit on the y-axis.
 	bottom : float
 		Sets the lower limit on the y-axis.
+	grid : dict
+		The keys in this dictionary will be used to set the arguments in a
+		call to :func:`matplotlib.pyplot.grid`. Default: ``{'which': 'major',
+		'color': '0.75'}``
 
+	Notes
+	-----
+	The line format can be set in the 'fmt' attribute of a spectrum.
+	The line format is passed directly to :func:`matplotlib.pyplot.plot` as
+	'fmt'.
+	
 	Examples
 	--------
 	See :func:`qtools.plotrs`.
 	"""
 
+	style = kwargs.get('style', 'default')
 	xscale = kwargs.get('xscale', 'lin')
-	show_legend = kwargs.get('legend', False)
+	if 'legend' in kwargs:
+		show_legend = True
+		legend = {'loc': 'best'}
+		if isinstance(kwargs['legend'], dict):
+			legend = kwargs['legend']
+	else:
+		show_legend = False
 	filename = kwargs.get('filename', '')
 	dpi = kwargs.get('dpi', None)
+	grid = kwargs.get('grid', {'which': 'major', 'color': '0.75'})
+
+	plt.style.use(style)
+
+	# Get the axes of a new plot
+	fig, ax = plt.subplots()
 
 	# Set the appropriate type of plot
 	if xscale == 'log':
-		plot = plt.semilogx
+		plot = ax.semilogx
 	elif xscale == 'lin':
-		plot = plt.plot
+		plot = ax.plot
 
-	plt.xlabel('Frequency [Hz]')
+	ax.set_xlabel('Frequency [Hz]')
 
 	# Check the validity of the arguments and set the labels on the y-axis
 	if all([isinstance(ps, FourierSpectrum) for ps in args]):
-		plt.ylabel('Fourier amplitude [{}]'.format(args[0].unit))
+		ax.set_ylabel('Fourier amplitude [{}]'.format(args[0].unit))
 		yaxis = 'X'
 	elif all([isinstance(ps, PowerSpectrum) for ps in args]):
-		plt.ylabel('Spectral power density [{}]'.format(args[0].unit))
+		ax.set_ylabel('Spectral power density [{}]'.format(args[0].unit))
 		yaxis = 'Wf'
 	else:
 		raise ValueError('The arguments provided to plotps are not all of the'
@@ -214,27 +295,27 @@ def plotps(*args, **kwargs):
 
 	# Set upper limit on x-axis if specified
 	if 'right' in kwargs:
-		plt.xlim(right=kwargs['right'])
+		ax.set_xlim(right=kwargs['right'])
 
 	# Set lower limit on x-axis if specified
 	if 'left' in kwargs:
-		plt.xlim(left=kwargs['left'])
+		ax.set_xlim(left=kwargs['left'])
 
 	# Set upper limit on y-axis if specified
 	if 'top' in kwargs:
-		plt.ylim(top=kwargs['top'])
+		ax.set_ylim(top=kwargs['top'])
 
 	# Set lower limit on y-axis if specified
 	if 'bottom' in kwargs:
-		plt.ylim(bottom=kwargs['bottom'])
+		ax.set_ylim(bottom=kwargs['bottom'])
 
 	if show_legend:
-		plt.legend(loc='best')
+		ax.legend(**legend)
 	
-	plt.grid(color='0.75')
+	ax.grid(**grid)
 
 	if len(filename) > 0:
-		plt.savefig(filename, dpi=dpi)
+		plt.savefig(filename, dpi=dpi, bbox_inches='tight')
 
 	plt.show()
 
@@ -315,6 +396,6 @@ def plotth(*args,**kwargs):
 		plt.legend(loc='best')
 
 	if len(filename) > 0:
-		plt.savefig(filename,dpi=dpi)
+		plt.savefig(filename, dpi=dpi)
 
 	plt.show()
