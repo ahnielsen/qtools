@@ -411,6 +411,8 @@ class ResponseSpectrum:
 			raise ValueError('In class method interp, kind = {} is not supported'.format(kind))
 
 		if sd_extrapolate:
+			# One-line replacement (to be tested):
+			# sa[fn < self.f[0]] = self.sd[0]*(2*pi*fn[fn < self.f[0]])**2/self.g
 			for i in range(np.size(fn)):
 				if fn[i] < self.f[0]:
 					sa[i] = self.sd[0]*(2*pi*fn[i])**2/self.g
@@ -955,11 +957,14 @@ def calcrs(th, ffile=None, nf=200, fmin=0.1, fmax=100., xi=0.05,
 
 	# Preliminary checks
 	if th.ordinate != 'a':
-		raise TypeError('The time history used as input to function calcrs must be an acceleration time history.')
+		raise TypeError('The time history used as input to function calcrs '
+				  'must be an acceleration time history.')
 	if xi >= 1.0 and solver=='solode':
-		raise ValueError('The damping ratio must be less than 1 when using the solode solver.')
+		raise ValueError('The damping ratio must be less than 1 when using '
+				   'the solode solver.')
 	if solver == 'odeint':
-		config.vprint('Using solver odeint to compute response spectrum with accuracy = {}.'.format(accuracy))
+		config.vprint('Using solver odeint to compute response spectrum with '
+				'accuracy = {}.'.format(accuracy))
 		if dml != 'viscous':
 			config.vprint('NOTE: The damping model is: {}'.format(dml))
 	elif solver[-6:] == 'solode':
@@ -995,12 +1000,13 @@ def calcrs(th, ffile=None, nf=200, fmin=0.1, fmax=100., xi=0.05,
 		if processes > 1:
 			# Multiple processes
 			config.vprint('Will use {} processes to compute spectrum'.format(processes))
-			config.vprint('Remember to protect the main module with an if __name__ == \'__main__\': statement')
-			config.vprint('WARNING: The input energy is not calculated when using multiple processes.')
+			config.vprint('Remember to protect the main module with an '
+				 'if __name__ == \'__main__\': statement')
 			with multiprocessing.Pool(processes=processes) as pool:
 				sd = pool.map(functools.partial(_solode, y0, th, xi), w)
 		else:
-			config.vprint('WARNING: Only one process available; reverting to single processing.')
+			config.vprint('WARNING: Only one process available; reverting to '
+				 'single processing.')
 			MP = False
 
 	if not MP:
@@ -1020,7 +1026,8 @@ def calcrs(th, ffile=None, nf=200, fmin=0.1, fmax=100., xi=0.05,
 					# provide a reasonable compromise between speed and accuracy
 					sol = odeint(fun1,y0,th.time,args=(w[i],xi,th),atol=0.000001,rtol=0.001)
 				elif accuracy == 'high':
-					# For solutions that display spurious high frequency behaviour, the following call should be tried:
+					# For solutions that display spurious high frequency behaviour,
+					# the following call should be tried:
 					sol = odeint(fun1,y0,th.time,args=(w[i],xi,th))
 				sd[i] = np.amax(np.fabs(sol[:,0]))
 			elif solver == 'fsolode':

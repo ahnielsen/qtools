@@ -62,8 +62,7 @@ First fully documented version.
 ### Version 1.0 (November 2020)
 
 - Error corrected in function `qt.calcrs` (affected cases for which the maximum frequency `fmax` 
-  was greater than the Nyquist
-  frequency of the input time history `th.fNyq`).
+  was greater than the Nyquist frequency of the input time history `th.fNyq`).
 - Function `qt.interpft` added for interpolation of time histories.
 - Attribute `ei` (meant to contain input energy) removed from `qt.ResponseSpectrum`. As a 
   replacement, a new class `qt.EnergySpectrum` is introduced.
@@ -120,6 +119,8 @@ First fully documented version.
   principle, this constitutes a major version update. However, it is surmised that the older
   implementation (in which a power spectrum was principally defined as a double-sided smoothed or
   unsmoothed function) was not used; therefore, this change is included in a minor version update.
+- New methods `qt.PowerSpectrum.moment` and `qt.PowerSpectrum.moments` for computation of spectral
+  moments.
 
 Author
 ------

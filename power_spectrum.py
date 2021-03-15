@@ -6,17 +6,8 @@ See README.md for further details.
 """
 
 import numpy as np
-from scipy.integrate import romb
 from math import pi, sqrt, ceil
-from . import time_history, response_spectrum, config
-try:
-	import pyrvt
-except ModuleNotFoundError:
-	config.vprint('WARNING: package PyRVT not found. Calling function rs2ps '
-			   'will have no effect.')
-	PYRVT_PRESENT = False
-else:
-	PYRVT_PRESENT = True
+from . import time_history, config
 
 class Spectrum:
 	"""Base class for Fourier and power spectra.
@@ -96,18 +87,54 @@ class PowerSpectrum(Spectrum):
 		Spectrum.__init__(self, f, unit=unit, label=label, fmt=fmt)
 		self.Wf = Wf
 
+	def moment(self, n):
+		"""
+		This function calculates an approximation to the `n`th moment of the
+		power spectrum defined as:
+		
+		..math:: \\lambda_{n} = \\int_{0}^{\\infty} \\omega^{n} G(\\omega)
+		         d\\omega
+		
+		where :math:`G(\\omega)` is the one-sided power spectral density
+		function. This function assumes that the spectral values are
+		equi-spaced along the frequency axis with ``self.f[0] == 0``.
+		
+		Parameters
+		----------
+		n : int
+			The order of the moment.
+		
+		Returns
+		-------
+		A float approximating the `n`th moment.
+		"""
+
+		return np.trapz((2*pi*self.f)**n*self.W, dx=self.f[1])
+	
+	def moments(self, *ns):
+		"""Calculate multiple moments in one go. See :meth:`moment` for
+		further information.
+		
+		Parameters
+		----------
+		*ns : int
+			One or more integers.
+			
+		Returns
+		-------
+		A list of moments whose length is equal to the number of arguments
+		provided to the method.
+		"""
+		
+		return [self.moment(n) for n in ns]
+	
 	def rms(self):
 		"""
-		This function calculates the root mean square from the power spectrum.
-		The function assumes that the spectrum contains 2**(p-1)+1 values
-		equi-spaced along the frequency axis and with self.f[1] equal to the frequency spacing.
-		It also assumes that the spectrum is symmetric about f = 0.
+		This method calculates the root mean square from the power spectrum.
 		"""
-		df = self.f[1]
-		IWf = romb(self.Wf,dx=df)
-		rms = sqrt(IWf)
-
-		return rms
+		return sqrt(self.moment(0))
+	
+	
 
 @config.set_module('qtools')
 class FourierSpectrum(Spectrum):
@@ -213,7 +240,8 @@ def calcps(th):
 	# Ensure time history has zero mean
 	th.zero_mean()
 
-	# Determine required size of array
+	# Determine required size of array. This will pad the input th with zeros
+	# up to first 2**p integer that is greater than th.ndat)
 	N = th.ndat
 	p = 1
 	while N-2**p > 0:
@@ -329,7 +357,33 @@ def calcfs(th, M=None):
 	return fs
 
 @config.set_module('qtools')
-def savesp(sp, fname, ordinate, fmt='%.18e', delimiter=' ',
+def transfer(ps, fn, xi, tfun=0):
+	
+	wn = 2*pi*fn
+	w = 2*pi*ps.f
+	
+	if isinstance(ps, PowerSpectrum):
+		if tfun==0:
+			if ps.unit=='m**2/s**3':
+				unit = 'm**2*s'
+			else:
+				unit = None
+			H2 = 1/((wn**2 - w**2)**2 + (2*xi*wn*w)**2)
+			Wy = H2*ps.Wf
+			return PowerSpectrum(ps.f, Wy, unit=unit)
+	
+	if isinstance(ps, FourierSpectrum):
+		if tfun==0:
+			if ps.unit=='m/s**2':
+				unit = 'm'
+			else:
+				unit = None
+			H = -1/(wn**2 - w**2 + 2*1j*xi*wn*w)
+			Xy = H*ps.X
+			return FourierSpectrum(ps.f, Xy, ps.N, ps.dt, L=ps.L, unit=unit)
+
+@config.set_module('qtools')
+def savesp(sp, fname, abscissa='f', fmt='%.18e', delimiter=' ',
 		 newline='\n', header='_default_', footer='', comments='# '):
 	"""Save the spectrum to text file. This function uses
 	:func:`numpy.savetxt` to perform the output operation. See
@@ -342,11 +396,12 @@ def savesp(sp, fname, ordinate, fmt='%.18e', delimiter=' ',
 		The spectrum to be saved to file.
 	fname : str
 		Filename or file handle. See :func:`numpy.savetxt`.
-	ordinate : str
-		Set this equal to the attribute that is to be written.
-		If ``ordinate = 'Sk'`` or ``ordinate = 'Sw'``, then the abscissa will
-		be circular frequency (in rad/s), otherwise it will be linear
-		frequency (in Hz).
+	abscissa : str
+		If set equal to 'w', then the abscissa will be circular frequency
+		(in rad/s), otherwise it will be linear frequency (in Hz).
+		This parameter will be ignored when `sp` is a Fourier spectrum.
+		For consistency, when ``abscissa == 'w'``, the ordinate will be divided
+		by :math:`2*\\pi`. Default 'f'.
 	fmt : str or sequence of strs, optional
 		See :func:`numpy.savetxt`.
 	delimiter : str, optional
@@ -364,26 +419,18 @@ def savesp(sp, fname, ordinate, fmt='%.18e', delimiter=' ',
 		String that will be prepended to the `header` and `footer` strings,
 		to mark them as comments.
 	"""
-	if type(sp) == FourierSpectrum:
+	if isinstance(sp, FourierSpectrum):
 		head0 = 'Fourier '
 		head2 = 'f [Hz], X [{}]'.format(sp.unit)
 		out = np.array([sp.f,sp.X])
-	elif type(sp) == PowerSpectrum:
+	elif isinstance(sp, PowerSpectrum):
 		head0 = 'Power '
-		if ordinate=='Wf':
+		if abscissa=='f':
 			head2 = 'f [Hz], Wf [{}]'.format(sp.unit)
-			out = np.array([sp.f,sp.Wf])
-		elif ordinate=='Sw':
-			head2 = 'w [rad/s], Sw [{}]'.format(sp.unit)
-			out = np.array([2*pi*sp.f,sp.Sw])
-		elif ordinate=='Sk':
-			head2 = 'w [rad/s], Sk [{}]'.format(sp.unit)
-			out = np.array([2*pi*sp.f,sp.Sk])
-		else:
-			config.vprint('WARNING: could not recognise the parameter'
-				 ' ordinate = {}'.format(ordinate))
-			config.vprint('No data has been save to file')
-		return
+			out = np.array([sp.f, sp.Wf])
+		elif abscissa=='w':
+			head2 = 'w [rad/s], Gw [{}]'.format(sp.unit)
+			out = np.array([2*pi*sp.f, sp.Sw/(2*pi)])
 	else:
 		raise TypeError('Wrong type of object supplied as first argument.')
 
@@ -391,66 +438,5 @@ def savesp(sp, fname, ordinate, fmt='%.18e', delimiter=' ',
 		head1 = head0+'spectrum computed by Qtools v. {}\n'.format(config.version)
 		header = head1+head2
 
-	np.savetxt(fname,out.T,fmt=fmt,delimiter=delimiter,newline=newline,
-				   header=header,footer=footer,comments=comments)
-
-@config.set_module('qtools')
-def rs2ps(rs, Mw, R, region, Td=None, method='V75'):
-	"""Converts a response spectrum into a power spectrum.
-
-	Parameters
-	----------
-	rs : an instance of class :class:`.ResponseSpectrum`
-		The response spectrum that is to be converted.
-	Mw : float
-		Earthquake magnitude (see notes below).
-	R : float
-		Earthquake distance in km (see notes below).
-	region : str
-		Region (see notes below).
-	Td : float, optional
-		Duration (see notes below).
-	method : str, optional
-		Method (see notes below).
-
-	Returns
-	-------
-	tuple
-		A tuple with two objects:
-
-		0. `ps` - an instance of class :class:`.TimeHistory`.
-		1. `rsc` - an instance of class :class:`.ResponseSpectrum`. This
-		   spectrum contains the acceleration back-calculated from `ps`. The
-		   returned spectrum `rsc` will differ slightly from the input spectrum
-		   `rs`.
-
-	Notes
-	-----
-	This function passes the parameters to
-	:func:`pyrvt.tools.calc_compatible_spectra`. For the meaning of parameters,
-	see documentation for `PyRVT <https://pyrvt.readthedocs.io/>`_.
-	If PyRVT is not installed on the system, the function will do
-	nothing. To use the function, the main module must be protected by an
-	``if __name__ == '__main__':`` statement.
-	"""
-
-	if PYRVT_PRESENT:
-		config.vprint('WARNING: Remember to protect the main module with'
-				' an if __name__ == \'__main__\': statement')
-		e = {}
-		e['psa'] = rs.sa
-		e['magnitude'] = Mw
-		e['distance'] = R
-		e['region'] = region
-		e['duration'] = Td
-		freqs = pyrvt.tools.calc_compatible_spectra(method, rs.T, [e], damping=rs.xi)
-
-		Td = e['duration']
-		config.vprint('The duration is = {}'.format(Td))
-		X = e['fa']/Td
-		Sw = e['fa']**2/(4*pi*Td)
-		Sk = Sw
-		ps = PowerSpectrum(freqs, X, Sk, Sw)
-		rsc = response_spectrum.ResponseSpectrum(rs.T,e['psa_calc'],abscissa='T')
-
-		return (ps, rsc)
+	np.savetxt(fname, out.T, fmt=fmt, delimiter=delimiter, newline=newline,
+				   header=header, footer=footer, comments=comments)
