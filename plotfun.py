@@ -5,6 +5,7 @@ Module: plotfun
 See README.md for further details.
 """
 
+import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 from qtools import config
@@ -141,9 +142,13 @@ def plotrs(*args,**kwargs):
 		raise ValueError('{} is not a valid value for the y-axis on a'
 				   ' response spectrum plot'.format(yaxis))
 
+	xmax = -1e6
+	xmin = 1e6
 	for rs in args:
 		x = rs.__dict__[xaxis]
 		y = rs.__dict__[yaxis]
+		xmax = max(np.amax(x),xmax)
+		xmin = min(np.amin(x),xmin)
 		if rs.color == '':
 			plot(x, y, rs.fmt, label=rs.label)
 		else:
@@ -151,11 +156,13 @@ def plotrs(*args,**kwargs):
 
 	# Set upper limit on x-axis if specified
 	if 'right' in kwargs:
-		ax.set_xlim(right=kwargs['right'])
+		xmax = kwargs['right']
+		ax.set_xlim(right=xmax)
 
 	# Set lower limit on x-axis if specified
 	if 'left' in kwargs:
-		ax.set_xlim(left=kwargs['left'])
+		xmin = kwargs['left']
+		ax.set_xlim(left=xmin)
 
 	# Set upper limit on y-axis if specified
 	if 'top' in kwargs:
@@ -172,6 +179,8 @@ def plotrs(*args,**kwargs):
 	
 	if xscale == 'log':
 		ax.xaxis.set_major_formatter(FuncFormatter(format_func))
+		if log10(xmax/xmin) < 1:
+			ax.xaxis.set_minor_formatter(FuncFormatter(format_func))
 		# Note: in Matplotlib version 3.3.4, the following call should be valid
 		#ax.xaxis.set_major_formatter(format_func)
 	if yscale == 'log':

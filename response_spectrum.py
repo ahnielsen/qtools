@@ -499,20 +499,14 @@ def meanrs(rslist, kind='loglin', sd_extrapolate=True, label='_nolegend_',
 
 
 @config.set_module('qtools')
-def envelope(rslist, option=0, kind='loglin', radp=False,
-			  sd_extrapolate=True):
+def envelope(rslist, kind='loglin', radp=False, sd_extrapolate=True):
 	"""
 	Compute the envelope of two or more response spectra.
 
 	Parameters
 	----------
 	rslist : list
-		A list containing two or more instances of ResponseSpectrum. This
-		first argument can also be a single instance of ResponseSpectrum (for
-		backwards compatibility only).
-	option : int, optional
-		Deprecated since version 1.1. Will be removed in version 2.0. This
-		parameter is not used for anything.
+		A list containing two or more instances of ResponseSpectrum.
 	radp : bool
 		If True, retain all data points. If False, simplify straight lines
 		in a `kind` co-ordinate system. See notes below. Default False.
@@ -726,7 +720,8 @@ def peakbroad(rs, df=0.15, df_sign='plus/minus', peak_cap=False, truncate=True):
 		for sa,sb in combinations(segs,2):
 			xa = sa[0]; ya = sa[1]
 			xb = sb[0]; yb = sb[1]
-			if xa[-1] <= xb[0] or xa[0] >= xb[-1] or max(ya) <= min(yb) or min(ya) >= max(yb):
+			if (xa[-1] <= xb[0] or xa[0] >= xb[-1] or 
+			   max(ya) <= min(yb) or min(ya) >= max(yb)):
 				# Segments cannot intersect
 				continue
 			else:
@@ -804,7 +799,7 @@ def peakbroad(rs, df=0.15, df_sign='plus/minus', peak_cap=False, truncate=True):
 
 	return ResponseSpectrum(fq,sa,xi=rs.xi)
 
-def _intersection(xa,ya,xb,yb,kind='loglin'):
+def _intersection(xa, ya, xb, yb, kind='loglin'):
 	"""Auxiliary function used by other functions. Determines whether two
 	straight lines, a and b, intersect, and returns the coordinates of the
 	intersection if they do.
@@ -830,6 +825,17 @@ def _intersection(xa,ya,xb,yb,kind='loglin'):
 	coords : tuple
 		The (x,y) coordinates of the intersection. If the two lines do not
 		intersect, the function returns (0,0).
+		
+	Notes
+	-----
+	See https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection
+	The function uses the variable `v` to determine the nature of intersection.
+	If `v` is negative, then intersection is outside the line segments.
+	If `v` is positive, then intersetion is within the line segments.
+	If `v` is close to zero, then the intersection is close to one of the
+	end points, which can generate spurious intersections and/or closely
+	spaced frequencies. To avoid that, we require that `v` is not too close
+	to zero.
 	"""
 	coords = (0,0)
 	x1 = log(xa[0]); x2 = log(xa[1])
@@ -841,11 +847,13 @@ def _intersection(xa,ya,xb,yb,kind='loglin'):
 		y1 = log(ya[0]); y2 = log(ya[1])
 		y3 = log(yb[0]); y4 = log(yb[1])
 	denom = (x1-x2)*(y3-y4)-(y1-y2)*(x3-x4)
-	# Lines are parallel if denom == 0
-	if not isclose(denom,0):
-		t = ((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/denom
-		u = -((x1-x2)*(y1-y3)-(y1-y2)*(x1-x3))/denom
-		if (t >= 0 and t <= 1) and (u >= 0 and u <= 1):
+	sd = np.sign(denom)
+	# Lines are parallel if denom = 0
+	if not isclose(denom, 0):
+		t = sd*((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))
+		u = sd*((x2-x1)*(y1-y3)-(y2-y1)*(x1-x3))
+		v = min(t, sd*denom-t, u, sd*denom-u)
+		if v > 0 and not isclose(v, 0, abs_tol=1e-6):
 			xi = ((x1*y2-y1*x2)*(x3-x4)-(x1-x2)*(x3*y4-y3*x4))/denom
 			yi = ((x1*y2-y1*x2)*(y3-y4)-(y1-y2)*(x3*y4-y3*x4))/denom
 			if kind == 'loglin':
