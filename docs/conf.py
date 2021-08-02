@@ -12,7 +12,6 @@
 #
 import os
 import sys
-import qtools as qt
 sys.path.insert(0, os.path.abspath('..'))
 
 # -- Project information -----------------------------------------------------
@@ -22,7 +21,7 @@ copyright = '2020-2021, Andreas H Nielsen'
 author = 'Andreas H Nielsen'
 
 # The full version, including alpha/beta/rc tags
-release = qt.config.version
+release = '3.0'
 
 # -- General configuration ---------------------------------------------------
 
@@ -69,7 +68,7 @@ html_theme = 'sphinx_rtd_theme'
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-# A string of reStructuredText that will be included at the beginning of every source file that is read. 
+# A string of reStructuredText that will be included at the beginning of every source file that is read.
 rst_prolog = """
 .. |m/s2| replace:: m/s\ :sup:`2`
 """
