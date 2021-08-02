@@ -8,7 +8,7 @@ See README.md for further details.
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
-from qtools import config
+from qtools.config import set_module, Info
 from qtools.power_spectrum import PowerSpectrum, FourierSpectrum
 from math import log10
 
@@ -23,8 +23,8 @@ def format_func(x, pos):
 	else:
 		return '{val:.0f}'.format(val=x)
 
-@config.set_module('qtools')
-def plotrs(*args,**kwargs):
+@set_module('qtools')
+def plotrs(*args, **kwargs):
 	"""Function for plotting instances of class ResponseSpectrum.
 
 	Parameters
@@ -32,7 +32,7 @@ def plotrs(*args,**kwargs):
 	*args
 		Any number of response spectra
 	**kwargs
-		Optional parameters (see below under **Other parameters**)
+		Optional named parameters (see below under **Other parameters**)
 
 	Other parameters
 	----------------
@@ -193,7 +193,7 @@ def plotrs(*args,**kwargs):
 
 	plt.show()
 
-@config.set_module('qtools')
+@set_module('qtools')
 def plotps(*args, **kwargs):
 	"""Function for plotting instances of class PowerSpectrum and
 	FourierSpectrum.
@@ -204,7 +204,7 @@ def plotps(*args, **kwargs):
 		Any number of power spectra or Fourier spectra. All spectra must be
 		of the same type.
 	**kwargs
-		Optional parameters (see below under **Other parameters**)
+		Optional named parameters (see below under **Other parameters**)
 
 	Other parameters
 	----------------
@@ -288,8 +288,8 @@ def plotps(*args, **kwargs):
 		raise ValueError('The arguments provided to plotps are not all of the'
 				   ' same type (either FourierSpectrum or PowerSpectrum)')
 	if len(set([ps.unit for ps in args])) > 1:
-		config.vprint('WARNING: in plotps, it seems that some spectra have'
-			 ' different units.')
+		Info.warn('In plotps, it seems that some spectra have different '
+			'units.')
 
 	# Create the plots
 	for ps in args:
@@ -328,8 +328,8 @@ def plotps(*args, **kwargs):
 
 	plt.show()
 
-@config.set_module('qtools')
-def plotth(*args,**kwargs):
+@set_module('qtools')
+def plotth(*args, **kwargs):
 	"""Function for plotting instances of class TimeHistory.
 
 	Parameters
@@ -337,7 +337,7 @@ def plotth(*args,**kwargs):
 	*args
 		Any number of time histories
 	**kwargs
-		Optional parameters (see below under **Other parameters**)
+		Optional named parameters (see below under **Other parameters**)
 
 	Other parameters
 	----------------

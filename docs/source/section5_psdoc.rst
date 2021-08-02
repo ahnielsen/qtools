@@ -22,10 +22,12 @@ Power spectrum creation
 -----------------------
 
 .. autofunction:: qtools.calcps
+.. autofunction:: qtools.kanai_tajimi
 
-.. autofunction:: qtools.rs2ps
+See also :func:`qtools.convert2ps` (converts a response spectrum into a power spectrum).
 
 Other functions
 ---------------
 
 .. autofunction:: qtools.savesp
+.. autofunction:: qtools.transfer

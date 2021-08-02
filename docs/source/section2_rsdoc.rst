@@ -16,6 +16,8 @@ Response spectrum creation
 
 .. autofunction:: qtools.loadrs
 
+See also :func:`qtools.convert2rs` (converts a power spectrum into a response spectrum).
+
 Design response spectrum creation
 ---------------------------------
 

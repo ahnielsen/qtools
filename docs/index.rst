@@ -10,8 +10,10 @@ Welcome to Qtools' documentation!
    source/section3_eidoc
    source/section4_thdoc
    source/section5_psdoc
-   source/section6_plotfun
-   source/section7_directs2s.rst
+   source/section6_rvdoc
+   source/section7_directS2S
+   source/section8_plotfun
+
 
 Indices and tables
 ==================

@@ -5,33 +5,20 @@ Module: response_spectrum
 See README.md for further details.
 """
 
+import copy
 import numpy as np
 import matplotlib as mpl
-import copy
-import functools
-import multiprocessing
 from itertools import combinations, permutations
-from scipy.integrate import odeint
-from scipy import interpolate
 from math import exp, log, log10, pi, sqrt, floor, sin, cos, isclose
+from numba import jit, prange
 from pathlib import Path
 from qtools.systems import vis1, sld
-from qtools import config
-try:
-	from .dlls import auxforsubs
-except ModuleNotFoundError:
-	config.vprint('WARNING: module auxforsubs not found. '
-			   'Qtools will use the slower Python solver for ODE integration.')
-	USE_FORTRAN_SUBS = False
-except ImportError:
-	config.vprint('WARNING: ImportError occured when attempting to import '
-			   'module auxforsubs. '
-			   'Qtools will use the slower Python solver for ODE integration.')
-	USE_FORTRAN_SUBS = False
-else:
-	USE_FORTRAN_SUBS = True
+from qtools.config import set_module, Info, version
+from scipy.integrate import odeint
+from scipy import interpolate
 
-@config.set_module('qtools')
+
+@set_module('qtools')
 class ResponseSpectrum:
 	"""
 	General class for response spectra.
@@ -122,8 +109,8 @@ class ResponseSpectrum:
 					'have the same length, have lengths {} and {}'.format(len(x),len(y)))
 		if min(np.diff(x)) <= 0:
 			raise ValueError('The argument x must be an array of monotonically '
-					'increasing values. This error typically arises when two '
-					'closely spaced frequencies become identical due to rounding.')
+					'increasing values. This error can arise when two closely '
+					'spaced frequencies become identical due to rounding.')
 
 		if abscissa == 'f':
 			self.f = x
@@ -255,7 +242,7 @@ class ResponseSpectrum:
 			   delimiter=' ', newline='\n', header='_default_', footer='',
 			   comments='# '):
 		"""
-		Save the response spectrum to text file. This function uses
+		Save the response spectrum to text file. This method uses
 		:func:`numpy.savetxt` for performing the output operation. See
 		documentation for :func:`numpy.savetxt` to understand the full
 		functionality.
@@ -290,7 +277,8 @@ class ResponseSpectrum:
 		"""
 
 		if header=='_default_':
-			head1 = 'Response spectrum {} saved by Qtools v. {}\n'.format(self.label,config.version)
+			lbl = self.label+' ' if self.label != '_nolegend_' else ''
+			head1 = 'Response spectrum {}saved by Qtools v. {}\n'.format(lbl,version)
 			head2 = 'Damping level = {}'.format(self.xi)
 			header = head1+head2
 
@@ -321,9 +309,9 @@ class ResponseSpectrum:
 			header += '\nPeriod, SA, SV, SD'
 
 		else:
-			config.vprint('WARNING: could not recognise the parameters abscissa '
+			Info.warn('Could not recognise the parameters abscissa '
 				 '= {} and/or ordinate = {}'.format(abscissa,ordinate))
-			config.vprint('No data has been save to file')
+			Info.warn('No data has been saved to file', prepend=False)
 			return
 
 		np.savetxt(fname,out.T,fmt=fmt,newline=newline,delimiter=delimiter,
@@ -408,7 +396,8 @@ class ResponseSpectrum:
 		elif kind == 'linlog':
 			sa = np.exp(np.interp(fn,self.f,np.log(self.sa)))
 		else:
-			raise ValueError('In class method interp, kind = {} is not supported'.format(kind))
+			raise ValueError('In class method interp, kind = {} is not '
+					'supported'.format(kind))
 
 		if sd_extrapolate:
 			# One-line replacement (to be tested):
@@ -432,8 +421,8 @@ class ResponseSpectrum:
 
 		return sa
 
-@config.set_module('qtools')
-def meanrs(rslist, kind='loglin', sd_extrapolate=True, label='_nolegend_', 
+@set_module('qtools')
+def meanrs(rslist, kind='loglin', sd_extrapolate=True, label='_nolegend_',
 		   fmt=''):
 	"""
 	Compute the mean of two or more response spectra.
@@ -454,10 +443,10 @@ def meanrs(rslist, kind='loglin', sd_extrapolate=True, label='_nolegend_',
 		extrapolation). See the :meth:`.interp` method for more
 		information. Default True.
 	label : str, optional
-		Parameter passed directly to the constructor of 
+		Parameter passed directly to the constructor of
 		:class:`ResponseSpectrum`.
 	fmt : str, optional
-		Parameter passed directly to the constructor of 
+		Parameter passed directly to the constructor of
 		:class:`ResponseSpectrum`.
 
 	Returns
@@ -482,7 +471,7 @@ def meanrs(rslist, kind='loglin', sd_extrapolate=True, label='_nolegend_',
 	xi0 = rslist[0].xi
 	xiAllEqual = np.all([xi0 == rs.xi for rs in rslist[1:]])
 	if not xiAllEqual:
-		config.vprint('WARNING: At least two response spectra supplied to '
+		Info.warn('At least two response spectra supplied to '
 				'the meanrs function have different damping ratios.')
 
 	allsa = np.empty((len(rslist),len(f0)))
@@ -498,7 +487,7 @@ def meanrs(rslist, kind='loglin', sd_extrapolate=True, label='_nolegend_',
 	return ResponseSpectrum(f0, sa, xi=xi0, label=label, fmt=fmt)
 
 
-@config.set_module('qtools')
+@set_module('qtools')
 def envelope(rslist, kind='loglin', radp=False, sd_extrapolate=True):
 	"""
 	Compute the envelope of two or more response spectra.
@@ -607,10 +596,10 @@ def envelope(rslist, kind='loglin', radp=False, sd_extrapolate=True):
 			sa1.append(sa0[-1])
 		# Finally, check damping
 		if rsa.xi != rsb.xi:
-			config.vprint('WARNING: an envelope is created of two spectra with'
+			Info.warn('An envelope is created of two spectra with'
 				 ' different damping ratios.')
-			config.vprint('The damping ratio of the new enveloping spectrum is'
-					' defined as {}.'.format(rs1.xi))
+			Info.warn('The damping ratio of the new enveloping spectrum is'
+					' defined as {}.'.format(rs1.xi), prepend=False)
 		return ResponseSpectrum(np.array(f1),np.array(sa1),xi=rsa.xi)
 
 	rs0 = rslist[0]
@@ -620,7 +609,7 @@ def envelope(rslist, kind='loglin', radp=False, sd_extrapolate=True):
 
 	return rs0
 
-@config.set_module('qtools')
+@set_module('qtools')
 def peakbroad(rs, df=0.15, df_sign='plus/minus', peak_cap=False, truncate=True):
 	"""Broaden a spectrum.
 
@@ -720,7 +709,7 @@ def peakbroad(rs, df=0.15, df_sign='plus/minus', peak_cap=False, truncate=True):
 		for sa,sb in combinations(segs,2):
 			xa = sa[0]; ya = sa[1]
 			xb = sb[0]; yb = sb[1]
-			if (xa[-1] <= xb[0] or xa[0] >= xb[-1] or 
+			if (xa[-1] <= xb[0] or xa[0] >= xb[-1] or
 			   max(ya) <= min(yb) or min(ya) >= max(yb)):
 				# Segments cannot intersect
 				continue
@@ -825,7 +814,7 @@ def _intersection(xa, ya, xb, yb, kind='loglin'):
 	coords : tuple
 		The (x,y) coordinates of the intersection. If the two lines do not
 		intersect, the function returns (0,0).
-		
+
 	Notes
 	-----
 	See https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection
@@ -909,9 +898,9 @@ def _peak_cap(left,right):
 		sgns = [1,-1]
 	return rsls,sgns
 
-@config.set_module('qtools')
+@set_module('qtools')
 def calcrs(th, ffile=None, nf=200, fmin=0.1, fmax=100., xi=0.05,
-		   solver='solode', accuracy='medium', MP=False):
+		   solver='solode', accuracy='medium'):
 	"""
 	Calculate a response spectrum from a time history.
 
@@ -937,12 +926,9 @@ def calcrs(th, ffile=None, nf=200, fmin=0.1, fmax=100., xi=0.05,
 	solver : {'solode', 'odeint'}, optional
 		Solution algorithm to be use for the computation. Default 'solode'.
 	accuracy : {'low', 'medium', 'high'}, optional
-		The required accuracy of the response spectrum. Valid with solver
-		'odeint' only. The specified accuracy can affect high frequency values.
-	MP : bool, optional
-		Use multi-processing to compute the response spectrum. Multi-processing
-		is only implemented for the solode solver. The input energy is not
-		calculated under multi-processing. Default False.
+		The required accuracy of the response spectrum. Only applicable to
+		solver 'odeint'. The specified accuracy can affect high frequency
+		values.
 
 	Returns
 	-------
@@ -960,7 +946,8 @@ def calcrs(th, ffile=None, nf=200, fmin=0.1, fmax=100., xi=0.05,
 	The odeint solver can be used for verification purposes.
 	"""
 
-	# Code involving dml is legacy code which can be ignored.
+	# Code involving dml is legacy code, but opens the option to compute
+	# response spectra for other damping models.
 	dml = 'viscous'
 
 	# Preliminary checks
@@ -971,91 +958,71 @@ def calcrs(th, ffile=None, nf=200, fmin=0.1, fmax=100., xi=0.05,
 		raise ValueError('The damping ratio must be less than 1 when using '
 				   'the solode solver.')
 	if solver == 'odeint':
-		config.vprint('Using solver odeint to compute response spectrum with '
+		Info.note('Using solver odeint to compute response spectrum with '
 				'accuracy = {}.'.format(accuracy))
 		if dml != 'viscous':
-			config.vprint('NOTE: The damping model is: {}'.format(dml))
-	elif solver[-6:] == 'solode':
-		config.vprint('Using solver solode to compute response spectrum.')
-		if USE_FORTRAN_SUBS:
-			solver = 'fsolode'
-		else:
-			solver = 'psolode'
+			Info.note('NOTE: The damping model is: {}'.format(dml))
+	elif solver == 'solode':
+		Info.note('Using solver solode to compute response spectrum.')
 		if th.dt_fixed:
-			config.vprint('The time step is taken as fixed.')
+			Info.note('The time step is taken as fixed.')
 		else:
-			config.vprint('The time step is taken as variable.')
+			Info.note('The time step is taken as variable.')
 	else:
 		raise ValueError('{} is not a valid solver'.format(solver))
 
 	if ffile==None:
 		# Generate frequency points
-		f = np.logspace(log10(fmin),log10(fmax),nf)
+		f = np.logspace(log10(fmin), log10(fmax), nf)
 	else:
 		# Read frequency points from file
 		f = np.loadtxt(ffile)
 		nf = np.size(f)
 		fmax = f[-1]
 	if f[0] >= th.fNyq:
-		raise ValueError('The lowest frequency of the spectrum is greater than, '
-				   'or equal to, the Nyquist frequency of the time history.')
+		raise ValueError('The lowest frequency of the spectrum is greater than,'
+				   ' or equal to, the Nyquist frequency of the time history.')
 
 	w = 2*pi*f[f<=th.fNyq]
-	y0 = [0.0,0.0]
+	y0 = np.array([0.0,0.0])
 
-	if MP:
-		processes = max(multiprocessing.cpu_count()-1, 1)
-		if processes > 1:
-			# Multiple processes
-			config.vprint('Will use {} processes to compute spectrum'.format(processes))
-			config.vprint('Remember to protect the main module with an '
-				 'if __name__ == \'__main__\': statement')
-			with multiprocessing.Pool(processes=processes) as pool:
-				sd = pool.map(functools.partial(_solode, y0, th, xi), w)
-		else:
-			config.vprint('WARNING: Only one process available; reverting to '
-				 'single processing.')
-			MP = False
-
-	if not MP:
-		# Single process
+	if solver == 'odeint':
 		sd = np.empty_like(w)
-		for i in range(len(w)):
-			if solver == 'odeint':
-				if dml == 'viscous':
-					fun1 = vis1
-				elif dml == 'solid':
-					fun1 = sld
-				if accuracy == 'low':
-					# Low accuracy - for quick and dirty solutions
-					sol = odeint(fun1,y0,th.time,args=(w[i],xi,th),atol=0.0001,rtol=0.001)
-				elif accuracy == 'medium':
-					# The atol and rtol values in the following call seem to
-					# provide a reasonable compromise between speed and accuracy
-					sol = odeint(fun1,y0,th.time,args=(w[i],xi,th),atol=0.000001,rtol=0.001)
-				elif accuracy == 'high':
-					# For solutions that display spurious high frequency behaviour,
-					# the following call should be tried:
-					sol = odeint(fun1,y0,th.time,args=(w[i],xi,th))
-				sd[i] = np.amax(np.fabs(sol[:,0]))
-			elif solver == 'fsolode':
-				sd[i], sol = auxforsubs.solode(y0,th.time,th.data,th.dt_fixed,xi,w[i])
-			elif solver == 'psolode':
-				sd[i] = _solode(y0,th,xi,w[i])
+		if dml == 'viscous':
+			fun1 = vis1
+		elif dml == 'solid':
+			fun1 = sld
+		for i in range(w.size):
+			if accuracy == 'low':
+				# Low accuracy - for quick and dirty solutions
+				sol = odeint(fun1, y0, th.time, args=(w[i], xi, th),
+							  atol=0.0001, rtol=0.001)
+			elif accuracy == 'medium':
+				# The atol and rtol values in the following call seem to
+				# provide a reasonable compromise between speed and accuracy
+				sol = odeint(fun1, y0, th.time, args=(w[i], xi, th),
+							  atol=0.000001, rtol=0.001)
+			elif accuracy == 'high':
+				# For solutions that display spurious high frequency behaviour,
+				# high accuracy should be tried:
+				sol = odeint(fun1, y0, th.time, args=(w[i], xi, th))
+			sd[i] = np.amax(np.fabs(sol[:,0]))
+	elif solver == 'solode':
+		sd = _psolode(y0, th.time, th.data, xi, w, th.dt_fixed)
 
-	# Set spectral accelerations equal to the PGA for f greater than the Nyquist frequency
+	# Set spectral accelerations equal to the ZPA for f > Nyquist frequency
 	if fmax > th.fNyq:
-		config.vprint('NOTE: Spectral accelerations above the Nyquist '
+		Info.note('NOTE: Spectral accelerations above the Nyquist '
 				'frequency ({:6.2f} Hz) are assumed equal to the ZPA.'.format(th.fNyq))
-		sd = np.append(sd,th.pga/(2*pi*f[sd.size:])**2)
+		sd = np.append(sd, th.pga/(2*pi*f[sd.size:])**2)
 
 	# Complete the creation of a response spectrum
-	config.vprint('------------------------------------------')
-	rs = ResponseSpectrum(f, sd, abscissa='f', ordinate='sd', xi=xi)
-	rs.setLabel(th.label)
+	Info.end()
+	rs = ResponseSpectrum(f, sd, abscissa='f', ordinate='sd', xi=xi, label=th.label)
 	return rs
 
-@config.set_module('qtools')
+
+@set_module('qtools')
 def calcrs_cmp(ths, ffile=None, nf=200, fmin=0.1, fmax=100, xi=0.05,
 		   cmp='GM', theta=0):
 	"""
@@ -1106,14 +1073,15 @@ def calcrs_cmp(ths, ffile=None, nf=200, fmin=0.1, fmax=100, xi=0.05,
 
 	# Preliminary checks
 	if ths[0].ordinate != 'a':
-		raise TypeError('The time history used as input to function calcrs_cmp '
-				  'must be an acceleration time history.')
+		raise TypeError('The time history used as input to function calcrs_cmp'
+				  ' must be an acceleration time history.')
 	if xi >= 1.0:
-		raise ValueError('The damping ratio must be less than 1 when using the solode solver.')
+		raise ValueError('The damping ratio must be less than 1 when using '
+				   'the solode solver.')
 	if ths[0].dt_fixed:
-		config.vprint('The time step is taken as fixed.')
+		Info.note('The time step is taken as fixed.')
 	else:
-		config.vprint('The time step is taken as variable.')
+		Info.note('The time step is taken as variable.')
 
 	if ffile == None:
 		# Generate frequency points
@@ -1124,11 +1092,11 @@ def calcrs_cmp(ths, ffile=None, nf=200, fmin=0.1, fmax=100, xi=0.05,
 		nf = np.size(f)
 		fmax = f[-1]
 	if f[0] >= ths[0].fNyq:
-		raise ValueError('The lowest frequency of the spectrum is greater than, '
-				   'or equal to, the Nyquist frequency of the time history.')
+		raise ValueError('The lowest frequency of the spectrum is greater than,'
+				   ' or equal to, the Nyquist frequency of the time history.')
 
 	w = 2*pi*f
-	y0 = [0.0,0.0]
+	y0 = np.array([0.0,0.0])
 
 	if cmp == 'GM' or cmp == 'MC' or cmp == 'MD':
 		angles = [np.radians(theta)]
@@ -1137,22 +1105,19 @@ def calcrs_cmp(ths, ffile=None, nf=200, fmin=0.1, fmax=100, xi=0.05,
 	else:
 		raise ValueError('The option cmp = {} is not supported.'.format(cmp))
 
-	config.vprint('Using solver solode to compute response spectrum for component {}.'.format(cmp))
+	# TO-DO: Move the following to a Numba compiled function for speed increase
+	Info.note('Using solver solode to compute response spectrum for '
+			   'component {}.'.format(cmp))
 	ax = ths[0].data; ay = ths[1].data
-	sd = np.empty((len(w),len(angles)))
-	for i in range(len(w)):
+	sd = np.empty((w.size, angles.size))
+	for i in range(w.size):
 		for j, q in enumerate(angles):
 			a0 = ax*cos(q) + ay*sin(q)
 			a1 = -ax*sin(q) + ay*cos(q)
-			if USE_FORTRAN_SUBS:
-				sd0, sol0 = auxforsubs.solode(y0,ths[0].time,a0,ths[0].dt_fixed,xi,w[i])
-				sd1, sol1 = auxforsubs.solode(y0,ths[1].time,a1,ths[1].dt_fixed,xi,w[i])
-			else:
-				ths[0].data = a0; ths[1].data = a1
-				sol0 = _solode(y0,ths[0],xi,w[i],peak_resp_only=False)
-				sd0 = np.amax(np.fabs(sol0[:,0]))
-				sol1 = _solode(y0,ths[1],xi,w[i],peak_resp_only=False)
-				sd1 = np.amax(np.fabs(sol0[:,0]))
+			sol0 = _solode(y0, ths[0].time, a0, xi, w[i], ths[0].dt_fixed)
+			sol1 = _solode(y0, ths[1].time, a1, xi, w[i], ths[1].dt_fixed)
+			sd0 = np.amax(np.fabs(sol0[:,0]))
+			sd1 = np.amax(np.fabs(sol1[:,0]))
 			if cmp == 'GM':
 				sd[i,j] = sqrt(sd0*sd1)
 			elif cmp == 'MC':
@@ -1164,15 +1129,27 @@ def calcrs_cmp(ths, ffile=None, nf=200, fmin=0.1, fmax=100, xi=0.05,
 		if cmp == 'GMRotD50':
 			sd[i,0] = np.median(sd[i,:])
 
-	# Retore original data in the time histories
-	ths[0].data = ax; ths[1].data = ay
 	# Complete the creation of a response spectrum
-	config.vprint('------------------------------------------')
+	Info.end()
 	rs = ResponseSpectrum(f, sd[:,0], abscissa='f', ordinate='sd', xi=xi)
 	rs.setLabel(' '.join((ths.label,cmp)))
 	return rs
 
-def _solode(y0,th,xi,w,peak_resp_only=True):
+@jit(nopython=True, parallel=True, cache=True)
+def _psolode(y0, t, f, xi, wn, dt_fixed):
+	"""Wrapper for :func:`_solode`. All this function does is to loop over all
+	frequencies and find the maximum spectral displacement for each frequency.
+	"""
+
+	sd = np.empty_like(wn)
+	for i in prange(wn.size):
+		sol = _solode(y0, t, f, xi, wn[i], dt_fixed)
+		sd[i] = np.max(np.fabs(sol[:,0]))
+
+	return sd
+
+@jit(nopython=True, cache=True)
+def _solode(y0, t, f, xi, w, dt_fixed):
 	"""
 	Solver for a second order linear ordinary differential equation.
 	This solver is intended for a single degree-of-freedom system subject to
@@ -1183,76 +1160,75 @@ def _solode(y0,th,xi,w,peak_resp_only=True):
 	y0 : tuple or list of floats
 		Initial conditions: y0[0] = initial displacement, y0[1] = initial
 		velocity
-	th : instance of class TimeHistory
-		Time history defining the base acceleration
+	t : 1D NumPy array
+		Time points
+	f : 1D NumPy array
+		Acceleration values defining the base acceleration (acc = f(t)).
 	xi : float
 		Damping ratio of the system
 	w : float
 		Undamped natural frequency of the system (rad/s)
-	peak_resp_only : bool, optional
-		If True, return only the maximum absolute displacement, otherwise
-		return a full response time history. Default True.
+	dt_fixed : bool
+		If True, the time step is assumed to constant and evaulated as
+		``dt = t[1] - t[0]``.
 
 	Returns
 	-------
-	If ``peak_resp_only == True``:
-	y : float
-		The maximum absolute displacement (spectral displacement)
-
-	If ``peak_resp_only == False``:
-	y : NumPy array, shape (len(th.ndat),2)
+	y : NumPy array, shape (t.size, 2)
 		Array containing the values of displacement (first column) and
 		velocities (second column) for each time point in th.time, with the
 		initial values y0 in the first row.
 	"""
 
 	wd = w*sqrt(1-xi**2)
-	n = th.ndat
+	n = t.size
 	y = np.empty((n,2))
 	y[0,:] = y0
-	f = -th.data
 
-	def ab(dt,w,wd,xi):
+	def ab(dt, w, wd, xi):
 		a = np.empty((2,2))
 		b = np.empty((2,2))
 		c = cos(wd*dt)
 		s = sin(wd*dt)
 		e = exp(-xi*w*dt)
+		# Note: w*w is faster than w**2
+		w2 = w*w
 		a[0,0] = e*(xi*w*s/wd+c)
 		a[0,1] = e*s/wd
-		a[1,0] = -e*w*s/sqrt(1-xi**2)
+		a[1,0] = -e*w*s/sqrt(1-xi*xi)
 		a[1,1] = e*(c-xi*w*s/wd)
-		b[0,0] = -e*((xi/(w*wd)+(2*xi**2-1)/(w**2*wd*dt))*s+(1/w**2+2*xi/(w**3*dt))*c)+2*xi/(w**3*dt)
-		b[0,1] = e*((2*xi**2-1)/(w**2*wd*dt)*s+2*xi/(w**3*dt)*c)+1/w**2-2*xi/(w**3*dt)
-		b[1,0] = -e*((wd*c-xi*w*s)*((2*xi**2-1)/(w**2*wd*dt)+xi/(wd*w))
-			   -(wd*s+xi*w*c)*(1/w**2+2*xi/(w**3*dt)))-1/(w**2*dt)
-		b[1,1] = -e*(-(wd*c-xi*w*s)*(2*xi**2-1)/(wd*w**2*dt)+(wd*s+xi*w*c)*2*xi/(w**3*dt))+1/(w**2*dt)
+		b[0,0] = -e*((xi/(w*wd)+(2*xi*xi-1)/(w2*wd*dt))*s+(1/w2
+			     +2*xi/(w2*w*dt))*c)+2*xi/(w2*w*dt)
+		b[0,1] = e*((2*xi*xi-1)/(w2*wd*dt)*s
+			     +2*xi/(w2*w*dt)*c)+1/w2-2*xi/(w2*w*dt)
+		b[1,0] = -e*((wd*c-xi*w*s)*((2*xi*xi-1)/(w2*wd*dt)+xi/(wd*w))
+			     -(wd*s+xi*w*c)*(1/w2+2*xi/(w2*w*dt)))-1/(w2*dt)
+		b[1,1] = -e*(-(wd*c-xi*w*s)*(2*xi*xi-1)/(wd*w2*dt)
+			     +(wd*s+xi*w*c)*2*xi/(w2*w*dt))+1/(w2*dt)
 		return (a,b)
 
-	if th.dt_fixed:
-		dt = th.dt
-		a,b = ab(dt,w,wd,xi)
+	if dt_fixed:
+		dt = t[1] - t[0]
+		a, b = ab(dt, w, wd, xi)
 		for i in range(n-1):
-			y[i+1,:] = a@y[i,:]+b@[f[i],f[i+1]]
+			y[i+1,0] = a[0,0]*y[i,0] + a[0,1]*y[i,1] + b[0,0]*f[i] + b[0,1]*f[i+1]
+			y[i+1,1] = a[1,0]*y[i,0] + a[1,1]*y[i,1] + b[1,0]*f[i] + b[1,1]*f[i+1]
 	else:
-		t = th.time
 		dt0 = 0
 		for i in range(n-1):
-			dt = t[i+1]-t[i]
-			# Ignore very small variations in time step
-			if not isclose(dt,dt0):
-				a,b = ab(dt,w,wd,xi)
+			dt = t[i+1] - t[i]
+			# Ignore very small variations in time step:
+			if abs(dt-dt0) > 1E-6*max(dt, dt0):
+				a, b = ab(dt, w, wd, xi)
 			dt0 = dt
-			y[i+1,:] = a@y[i,:]+b@[f[i],f[i+1]]
+			y[i+1,0] = a[0,0]*y[i,0] + a[0,1]*y[i,1] + b[0,0]*f[i] + b[0,1]*f[i+1]
+			y[i+1,1] = a[1,0]*y[i,0] + a[1,1]*y[i,1] + b[1,0]*f[i] + b[1,1]*f[i+1]
 
-	if peak_resp_only:
-		return np.amax(np.fabs(y[:,0]))
-	else:
-		return y
+	return y
 
-@config.set_module('qtools')
+@set_module('qtools')
 def loadrs(sfile, abscissa='f', ordinate='sag', length='m', xi=0.05,
-		   delimiter=None, comments='#', skiprows=0, label='_nolegend_', 
+		   delimiter=None, comments='#', skiprows=0, label='_nolegend_',
 		   fmt=''):
 	"""
 	Load a response spectrum from a text file. The x-values (abscissae) must
@@ -1269,7 +1245,7 @@ def loadrs(sfile, abscissa='f', ordinate='sag', length='m', xi=0.05,
 		* ``ordinate = 'sv'`` and ``length = 'cm'``: the ordinates are defined
 		  in units of cm/s.
 		* ``ordinate = 'sd'`` and ``length = 'mm'``: the ordinates are defined
-		  in units of mm/s.
+		  in units of mm.
 
 	Parameters
 	----------
@@ -1305,17 +1281,17 @@ def loadrs(sfile, abscissa='f', ordinate='sag', length='m', xi=0.05,
 	inp = np.loadtxt(sfile, delimiter=delimiter, comments=comments, skiprows=skiprows)
 	x = inp[:,0]
 	y = inp[:,1]/lf[length]
-	rs = ResponseSpectrum(x ,y , abscissa=abscissa, ordinate=ordinate, xi=xi, 
+	rs = ResponseSpectrum(x ,y , abscissa=abscissa, ordinate=ordinate, xi=xi,
 					   fmt=fmt)
 	if label=='_nolegend_':
 		# Set label based on filename (removing the file path and the extension, if any)
 		rs.setLabel(Path(sfile).stem)
 	else:
 		rs.setLabel(label)
-		
+
 	return rs
 
-@config.set_module('qtools')
+@set_module('qtools')
 def dmpinterp(rs1, rs2 , xi, method=2, kind='loglin', sd_extrapolate=True):
 	"""Interpolates two response spectra at a new damping level.
 
@@ -1391,10 +1367,10 @@ def dmpinterp(rs1, rs2 , xi, method=2, kind='loglin', sd_extrapolate=True):
 	if isclose(rs1.xi,rs2.xi):
 		raise ValueError('The damping levels of rs1 and rs2 must be different.')
 	if xi < min(rs1.xi,rs2.xi) or xi > max(rs1.xi,rs2.xi):
-		config.vprint('WARNING: function dampinterp is used for extrapolation.')
+		Info.warn('Function dmpinterp is used for extrapolation.')
 	if max(rs1.xi,rs2.xi) > 3*min(rs1.xi,rs2.xi):
-		config.vprint('WARNING: the maxmum damping ratio is more than 3 times the '
-				'minimum damping ratio, which outside ASCE 4 recommended bounds.')
+		Info.warn('The maxmum damping ratio is more than 3 times the minimum'
+			' damping ratio, which outside ASCE 4 recommended bounds.')
 	# Create copies of rs1 and rs1 to avoid changing the values of their attributes
 	rsa = copy.deepcopy(rs1)
 	rsb = copy.deepcopy(rs2)
@@ -1407,7 +1383,7 @@ def dmpinterp(rs1, rs2 , xi, method=2, kind='loglin', sd_extrapolate=True):
 			if rsb.f[j+1] <= rsa.f[i]: k += 1; continue
 			coords = _intersection(rsa.f[i:i+2],rsa.sa[i:i+2],rsb.f[j:j+2],rsb.sa[j:j+2],kind=kind)
 			if coords[0] > 0:
-				config.vprint('WARNING: The two response spectra supplied as '
+				Info.note('WARNING: The two response spectra supplied as '
 				  'arguments to function dmpinterp intersect at f = {}.'.format(coords[0]))
 				fi.append(coords[0])
 	# Interpolate spectra at a common set of frequencies
@@ -1422,7 +1398,7 @@ def dmpinterp(rs1, rs2 , xi, method=2, kind='loglin', sd_extrapolate=True):
 
 	return ResponseSpectrum(f0,sa,xi=xi)
 
-@config.set_module('qtools')
+@set_module('qtools')
 def ec8_2004(pga, pga_unit='g', xi=0.05, inf=10, stype=1, gtype='A', q=1.0,
 			 option='HE'):
 	"""
@@ -1457,7 +1433,8 @@ def ec8_2004(pga, pga_unit='g', xi=0.05, inf=10, stype=1, gtype='A', q=1.0,
 	"""
 
 	if gtype not in ('A','B','C','D','E'):
-		raise ValueError('Unsupported ground type in call to ec8_2004: gtype = {}'.format(gtype))
+		raise ValueError('Unsupported ground type in call to ec8_2004:'
+				   ' gtype = {}'.format(gtype))
 
 	if stype == 1:
 		params = {'A' : [1.0, 0.15, 0.4, 2.0],
@@ -1494,14 +1471,11 @@ def ec8_2004(pga, pga_unit='g', xi=0.05, inf=10, stype=1, gtype='A', q=1.0,
 				SA.append(pga*S*eta*2.5*TC/T)
 			else:
 				SA.append(pga*S*eta*2.5*TC*TD/T**2)
-	elif option=='HD':
-		config.vprint('Warning: option HD has not been implemented yet.')
-	elif option=='VE':
-		config.vprint('Warning: option VE has not been implemented yet.')
-	elif option=='VD':
-		config.vprint('Warning: option VD has not been implemented yet.')
+	elif option in ['HD','VE','VD']:
+		Info.warn('Option {} has not been implemented.'.format(option))
 	else:
-		raise ValueError('Unsupported option in call to ec8_2004: option = {}'.format(option))
+		raise ValueError('Unsupported option in call to ec8_2004: '
+				   'option = {}'.format(option))
 
 	if pga_unit == 'g':
 		ord = 'sag'
@@ -1512,7 +1486,7 @@ def ec8_2004(pga, pga_unit='g', xi=0.05, inf=10, stype=1, gtype='A', q=1.0,
 	rs.setLabel('EC8 Type '+str(stype)+' GT '+str(gtype)+' '+str(xi*100)+'%')
 	return rs
 
-@config.set_module('qtools')
+@set_module('qtools')
 def dec8_2017(SRP, sa_unit='g', xi=0.05, inf=10, gtype='A', q=1.0, option='HE'):
 	"""
 	Create a response spectrum in accordance with the draft revision of BS EN
@@ -1563,8 +1537,8 @@ def dec8_2017(SRP, sa_unit='g', xi=0.05, inf=10, gtype='A', q=1.0, option='HE'):
 		TD = 2.0
 	else:
 		TD = 1.0+10*S1
-	print('TA = {:}, TB = {:}, TC = {:}, TD = {:}'.format(TA,TB,TC,TD))
-	print('fD = {:}, fC = {:}, fB = {:}, fA = {:}'.format(1/TD,1/TC,1/TB,1/TA))
+	Info.deb('TA = {:}, TB = {:}, TC = {:}, TD = {:}'.format(TA,TB,TC,TD))
+	Info.deb('fD = {:}, fC = {:}, fB = {:}, fA = {:}'.format(1/TD,1/TC,1/TB,1/TA))
 
 	if gtype not in ('A','B','C','D','E'):
 		raise ValueError('Unsupported ground type in call to dec8_2017: gtype = {}'.format(gtype))
@@ -1590,25 +1564,23 @@ def dec8_2017(SRP, sa_unit='g', xi=0.05, inf=10, gtype='A', q=1.0, option='HE'):
 				SA.append(eta*S1*T1/T)
 			else:
 				SA.append(eta*TD*S1*T1/T**2)
-	elif option=='HD':
-		config.vprint('Warning: option HD has not been implemented yet.')
-	elif option=='VE':
-		config.vprint('Warning: option VE has not been implemented yet.')
-	elif option=='VD':
-		config.vprint('Warning: option VD has not been implemented yet.')
+	elif option in ['HD','VE','VD']:
+		Info.warn('Option {} has not been implemented.'.format(option))
 	else:
-		raise ValueError('Unsupported option in call to dec8_2017: option = {}'.format(option))
+		raise ValueError('Unsupported option in call to dec8_2017:'
+				   ' option = {}'.format(option))
 
 	if sa_unit == 'g':
 		ord = 'sag'
 	else:
 		ord = 'sa'
 
-	rs = ResponseSpectrum(np.array(Tl),np.array(SA),abscissa='T',ordinate=ord,xi=xi)
+	rs = ResponseSpectrum(np.array(Tl), np.array(SA), abscissa='T',
+					   ordinate=ord, xi=xi)
 	rs.setLabel('DEC8 GT '+str(gtype)+' '+str(xi*100)+'%')
 	return rs
 
-@config.set_module('qtools')
+@set_module('qtools')
 def ieee693_2005(option='moderate', inf=10, xi=0.02):
 	"""
  	Generate the required response spectrum in accordance with
@@ -1629,12 +1601,13 @@ def ieee693_2005(option='moderate', inf=10, xi=0.02):
 	rs : an instance of class ResponseSpectrum
 	"""
 
-	a = (0.572,0.625,6.6,2.64,0.2,0.33,0.25)
+	a = (0.572, 0.625, 6.6, 2.64, 0.2, 0.33, 0.25)
 	if option == 'high':
 		a *= 2.0
 	elif option != 'moderate':
-		print('Warning: in in function ieee693_2005: could not recognise IEEE qualification level.')
-		print('Assuming moderate level.')
+		Info.warn('In function ieee693_2005: could not '
+				'recognise IEEE qualification level.')
+		Info.warn('Assuming moderate level.', prepend=False)
 
 	f0 = 0.3; f1 = 1.1; f2 = 8.0; f3 = 33.0; f4 = 50.0
 	beta = (3.21-0.68*log(100*xi))/2.1156
@@ -1655,11 +1628,12 @@ def ieee693_2005(option='moderate', inf=10, xi=0.02):
 		else:
 			SA.append(a[6])
 
-	rs = ResponseSpectrum(np.array(fl), np.array(SA), abscissa='f' ,ordinate='sag', xi=xi)
+	rs = ResponseSpectrum(np.array(fl), np.array(SA), abscissa='f',
+					   ordinate='sag', xi=xi)
 	rs.setLabel('IEEE 693 RRS '+str(xi*100)+'%')
 	return rs
 
-@config.set_module('qtools')
+@set_module('qtools')
 def pml(pga, pga_unit='g', xi=0.05, inf=10, gtype='hard'):
 	"""
 	Create a PML design response spectrum. This function will generate a
@@ -1745,7 +1719,7 @@ def pml(pga, pga_unit='g', xi=0.05, inf=10, gtype='hard'):
 	rs.setLabel('PML '+str(gtype)+' '+str(xi*100)+'%')
 	return rs
 
-@config.set_module('qtools')
+@set_module('qtools')
 def eur_vhr(pga, pga_unit='g', inf=10):
 	"""
 	Create a response spectrum in accordance with the draft EUR Very Hard Rock

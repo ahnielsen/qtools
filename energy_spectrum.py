@@ -8,23 +8,11 @@ See README.md for further details.
 import numpy as np
 from scipy.integrate import trapz
 from math import log10, pi
-from .response_spectrum import ResponseSpectrum, _solode
-from . import config
-try:
-	from .dlls import auxforsubs
-except ModuleNotFoundError:
-	config.vprint('WARNING: module auxforsubs not found. '
-			   'Qtools will use the slower Python solver for ODE integration ')
-	USE_FORTRAN_SUBS = False
-except ImportError:
-	config.vprint('WARNING: ImportError occured when attempting to import '
-			   'module auxforsubs. '
-			   'Qtools will use the slower Python solver for ODE integration ')
-	USE_FORTRAN_SUBS = False
-else:
-	USE_FORTRAN_SUBS = True
+from qtools.response_spectrum import ResponseSpectrum, _solode
+from qtools.config import set_module, Info
 
-@config.set_module('qtools')
+
+@set_module('qtools')
 class EnergySpectrum(ResponseSpectrum):
 	"""
 	General class for energy spectra.
@@ -95,7 +83,7 @@ class EnergySpectrum(ResponseSpectrum):
 							xi=xi, label=label, fmt=fmt)
 
 
-@config.set_module('qtools')
+@set_module('qtools')
 def calcei(th, ffile=None, nf=200, fmin=0.1, fmax=100, xi=0.05):
 	"""
 	Calculate an energy spectrum from a time history.
@@ -129,14 +117,15 @@ def calcei(th, ffile=None, nf=200, fmin=0.1, fmax=100, xi=0.05):
 
 	# Preliminary checks
 	if th.ordinate != 'a':
-		raise TypeError('The time history used as input to function calcei must be an acceleration time history.')
+		raise TypeError('The time history used as input to function calcei '
+				  'must be an acceleration time history.')
 	if xi >= 1.0:
 		raise ValueError('The damping ratio must be less than 1.')
-	config.vprint('Using solver solode to compute energy spectrum.')
+	Info.note('Using solver solode to compute energy spectrum.')
 	if th.dt_fixed:
-		config.vprint('The time step is taken as fixed.')
+		Info.note('The time step is taken as fixed.')
 	else:
-		config.vprint('The time step is taken as variable.')
+		Info.note('The time step is taken as variable.')
 
 	if ffile==None:
 		# Generate frequency points
@@ -147,43 +136,42 @@ def calcei(th, ffile=None, nf=200, fmin=0.1, fmax=100, xi=0.05):
 		nf = np.size(f)
 		fmax = f[-1]
 	if f[0] >= th.fNyq:
-		raise ValueError('The lowest frequency of the spectrum is greater than, '
-				   'or equal to, the Nyquist frequency of the time history.')
+		raise ValueError('The lowest frequency of the spectrum is greater than,'
+				   ' or equal to, the Nyquist frequency of the time history.')
 
 	w = 2*pi*f[f<=th.fNyq]
-	y0 = [0.0,0.0]
+	y0 = np.array([0.0, 0.0])
 
 	# Solve
 	ei = np.empty_like(w)
-	for i in range(len(w)):
-		if USE_FORTRAN_SUBS:
-			sd, sol = auxforsubs.solode(y0,th.time,th.data,th.dt_fixed,xi,w[i])
-		else:
-			sol = _solode(y0,th,xi,w[i],peak_resp_only=False)
+	for i in range(w.size):
+		sol = _solode(y0, th.time, th.data, xi, w[i], th.dt_fixed)
 		# Spectral input energy
-		# Calculate the input energy as the sum of kinetic energy, strain energy and energy dissipated in viscuos damping.
-		svl = trapz(th.data,th.time)
-		Ekin = 1/2*(sol[-1,1]+svl)**2
+		# Calculate the input energy as the sum of kinetic energy, strain
+		# energy and energy dissipated in viscuos damping.
+		svl = trapz(th.data, x=th.time)
+		Ekin = 1/2*(sol[-1,1] + svl)**2
 		Estr = 1/2*(w[i]*sol[-1,0])**2
-		Evis = trapz(2*xi*w[i]*sol[:,1]**2,x=th.time)
-		ei[i] = Evis+Ekin+Estr
+		Evis = trapz(2*xi*w[i]*sol[:,1]**2, x=th.time)
+		ei[i] = Evis + Ekin + Estr
 		# # Calculate the work done on the system. This will yield similar results.
-		# svl = cumtrapz(th.data,th.time,initial=0)
-		# intg = -(2*xi*w[i]*sol[:,1]+w[i]**2*sol[:,0])*svl
-		# ei[i] = trapz(intg,x=th.time)
+		# svl = cumtrapz(th.data, th.time, initial=0)
+		# intg = -(2*xi*w[i]*sol[:,1] + w[i]**2*sol[:,0])*svl
+		# ei[i] = trapz(intg, x=th.time)
 		# # Alternatively, calculate the work done on the system by integration
 		# # by parts of the total inertia force times ground velocity. Again,
 		# # this will yield similar results.
-		# svl = cumtrapz(th.data,th.time,initial=0)
-		# ei[i] = sol[-1,1]*svl[-1]+svl[-1]**2/2-trapz(th.data*sol[:,1],x=th.time)
+		# svl = cumtrapz(th.data, th.time, initial=0)
+		# ei[i] = sol[-1,1]*svl[-1] + svl[-1]**2/2 - trapz(th.data*sol[:,1], x=th.time)
 
 	# Set spectral energies for f > fNyq equal to the value at the fNyq
 	if fmax > th.fNyq:
-		config.vprint('NOTE: Input energies above the Nyquist frequency are assumed equal to the value at {:6.2f} Hz.'.format(th.fNyq))
+		Info.note('NOTE: Input energies above the Nyquist frequency are '
+				'assumed equal to the value at {:6.2f} Hz.'.format(th.fNyq))
 		ei = np.append(ei,ei[-1]*np.ones(f.size-ei.size))
 
 	# Complete the creation of an energy spectrum
-	config.vprint('------------------------------------------')
+	Info.end()
 	ei = EnergySpectrum(f, ei, abscissa='f', xi=xi)
 	ei.setLabel(th.label)
 	return ei

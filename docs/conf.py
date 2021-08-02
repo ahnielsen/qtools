@@ -12,6 +12,7 @@
 #
 import os
 import sys
+import qtools as qt
 sys.path.insert(0, os.path.abspath('..'))
 
 # -- Project information -----------------------------------------------------
@@ -21,7 +22,7 @@ copyright = '2020-2021, Andreas H Nielsen'
 author = 'Andreas H Nielsen'
 
 # The full version, including alpha/beta/rc tags
-release = '1.1'
+release = qt.config.version
 
 # -- General configuration ---------------------------------------------------
 

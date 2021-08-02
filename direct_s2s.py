@@ -168,10 +168,10 @@ import numpy as np
 import time
 from pathlib import Path
 from qtools.response_spectrum import ResponseSpectrum
-from qtools import config
+from qtools.config import Info, version, set_module
 from qtools import ds2smods as dsm
 
-@config.set_module('qtools')
+@set_module('qtools')
 def directS2S(ND, OD, z0, method='Jiang (2015)', zmin=0.001, INRES=True,
 			  **kwargs):
 	"""Compute an in-structure response spectrum (ISRS) using a direct
@@ -198,6 +198,9 @@ def directS2S(ND, OD, z0, method='Jiang (2015)', zmin=0.001, INRES=True,
 	wd : str, optional
 		Path to working directory. If this is not provided, `wd` will default
 		to the current working directory.
+		
+	Other named parameters
+	----------------------
 	rslist : a list of lists of response spectra, optional
 		Input spectra for ISRS computation. If `rslist` is not provided,
 		the function will look for a file named `SpectralData.txt` in the
@@ -214,23 +217,21 @@ def directS2S(ND, OD, z0, method='Jiang (2015)', zmin=0.001, INRES=True,
 		  (with ``Np = len(mdlist[0])``);
 		* ``mdlist[1]`` is a 1D array with modal damping ratios;
 		* ``mdlist[2]`` is a 2D array with participation factors
-		  (the shape of this array must be (`Np`,`ND`);
+		  (the shape of this array must be (`Np`, `ND`);
 		* ``mdlist[3]`` is a 1D or 2D array with modal displacements
-		  (the shape of this array must be (`Np`,`ND`) or just (`Np`,) if `ND` = 1).
+		  (the shape of this array must be (`Np`, `ND`) or just (`Np`,)
+		  if `ND` = 1).
 
-	Other parameters
-	----------------
-	The following named parameters are used in the Jiang (2015) method:
-
+	Other named parameters (Jiang 2015)
+	-----------------------------------
 	fc : tuple of floats, required
 		Corner frequencies. See the DirectS2S Documentation.
 	GT : str, optional
 		Ground type ('H' for hard, 'S' for soft). Only relevant for vertical
 		excitation. Default 'H'.
 		
-	The following named parameters are used in the Der Kiureghian (1981)
-	method:
-
+	Other named parameters (Der Kiureghian 1981)
+	--------------------------------------------
 	m0 : float, optional
 		Mass of secondary system. Default value 0.
 
@@ -246,7 +247,7 @@ def directS2S(ND, OD, z0, method='Jiang (2015)', zmin=0.001, INRES=True,
 	"""
 	# Time the execution
 	start = time.perf_counter()
-	config.vprint('Computing in-structure response spectrum with method: {}'
+	Info.note('Computing in-structure response spectrum with method: {}'
 			   .format(method))
 
 	# Check if a path has been specified; if not, assume current working directory
@@ -325,7 +326,7 @@ def directS2S(ND, OD, z0, method='Jiang (2015)', zmin=0.001, INRES=True,
 	outfil = Path(wd) / 'DirectS2S_Output_{}.txt'.format(OD)
 	localtime = time.asctime(time.localtime(time.time()))
 	head1 = ('# In-structure response spectrum computed by Qtools '
-		  'v. {} on {}'.format(config.version,localtime))
+		  'v. {} on {}'.format(version, localtime))
 	head2 = ('# Method = {}, direction = {}, damping ratio = {}, '
 		  'residual response {}'.format(method, OD, z0, 'included' if INRES
 								 else 'excluded'))
@@ -337,7 +338,7 @@ def directS2S(ND, OD, z0, method='Jiang (2015)', zmin=0.001, INRES=True,
 
 	# End timing
 	stop = time.perf_counter()
-	config.vprint('Time to execute (min): {:6.2f}'.format((stop-start)/60))
+	Info.note('Time to execute (min): {:6.2f}'.format((stop-start)/60))
 
 	return rs
 

@@ -15,7 +15,7 @@ Getting Started
 
 Place the Qtools package (i.e. the folder named "qtools") in your PYTHONPATH. Then import Qtools:
 
-    import qtools as qt
+    >>>import qtools as qt
 
 > Note: In the examples given within the documentation, Qtools is always imported as `qt`, and 
   NumPy is always imported as `np`.
@@ -24,18 +24,13 @@ Prerequisites
 -------------
 
 Qtools relies on the following packages in addition to standard packages such as `math`, `copy` 
-and `itertools` (version numbers correct at the completion of Qtools version 2.0):
+and `itertools` (version numbers correct at the completion of Qtools version 3.0):
 
-* NumPy (1.18.1)
-* SciPy (1.4.1)
-* Matplotlib (3.1.3)
-* Numba (0.48.0)
-
-An update to the latest versions of the above packages is planned during 2021.
-
-> Note: The Fortran subroutine `qt.dll.auxforsubs` has been compiled for Windows x64 systems only. 
-  On other systems Qtools should automatically ignore the Fortran code and replace it with slower 
-  Python code. This affects `qt.calcrs` only.
+* Python 3.8
+* NumPy 1.20.1
+* SciPy 1.6.2
+* Matplotlib 3.3.4
+* Numba 0.53.1
 
 Documentation
 -------------
@@ -53,6 +48,21 @@ number is available as `qt.__version__`.
 
 Versions
 --------
+
+### Version 3.0 (August 2021)
+
+- New function `qt.Kanai_Tajimi` added.
+- New module named `qt.random_vibration` added. This module contains classes and functions for
+  conversion of response spectra to power spectra and vice versa. The two main gateway functions
+  are `qt.convert2ps`, which converts a response spectrum into a compatible power spectrum, and
+  `qt.convert2rs`, which performs the opposite conversion.
+- The speed of the Python implementation of the 'solode' solver used in `qt.calcrs` and `qt.calcei`
+  was significantly improved through Numba compilation and other minor optimisations. Tests
+  indicated that the Numba code was at least three times faster than the Fortran code used in
+  previous versions (maybe because the Fortran code had not been fully optimised and maybe because
+  the Numba code used parallelization, which the Fortran code didn't). In light of those speed
+  gains, and because maintaining the Fortran code is more demanding on my time, I decided to
+  discontinue the Fortran code.
 
 ### Version 2.2 (March 2021)
 
@@ -77,7 +87,7 @@ Versions
 
 - The module `qt.disrs` was replaced by a new module named `qt.direct_s2s`. This now provides all
   functions required to compute in-structure response spectra using direct spectrum-to-spectrum
-  methods. The interface with `qt.direct_s2s` is now through a single function `qt.directS2S()`.
+  methods. The interface with `qt.direct_s2s` is now through a single function `qt.directS2S`.
 - The original direct spectrum-to-spectrum method contained in `qt.disrs` (Jiang et al. (2015)) was
   re-written, and the speed of the implementation was improved.
 - A new method (Der Kiureghian (1981)) was added to `qt.direct_s2s`. For full references see the
