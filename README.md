@@ -24,13 +24,13 @@ Prerequisites
 -------------
 
 Qtools relies on the following packages in addition to standard packages such as `math`, `copy` 
-and `itertools` (version numbers correct at the completion of Qtools version 3.0):
+and `itertools` (for recommended version numbers, see requirements.txt):
 
-* Python 3.8
-* NumPy 1.20.1
-* SciPy 1.6.2
-* Matplotlib 3.3.4
-* Numba 0.53.1
+* Matplotlib
+* Numba
+* NumPy
+* PyRVT (optional)
+* SciPy
 
 Documentation
 -------------
