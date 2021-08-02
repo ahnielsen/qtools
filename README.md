@@ -35,8 +35,12 @@ and `itertools` (version numbers correct at the completion of Qtools version 3.0
 Documentation
 -------------
 
-A documentation is available in the ./docs folder. However, this has to be compiled with Sphinx
-for HMTL / PDF viewing. The current documentation has been compiled with Sphinx 2.4.0.
+For the lastest documentation go to
+[Qtools on Read the Docs](https://qtools.readthedocs.io/en/latest/).
+
+The source of this documentation is available in the ./docs folder. The source files have to be
+compiled with Sphinx for HMTL / PDF viewing. The current documentation has been compiled with
+Sphinx version 4.0.2.
 
 Version numbering
 -----------------
