@@ -1,7 +1,7 @@
 """
 Package: Qtools
 Module: response_spectrum
-(C) 2020-2021 Andreas H. Nielsen
+(C) 2020-2022 Andreas H. Nielsen
 See README.md for further details.
 """
 
@@ -1157,7 +1157,7 @@ def _solode(y0, t, f, xi, w, dt_fixed):
 
 	Parameters
 	----------
-	y0 : tuple or list of floats
+	y0 : tuple or Numpy array
 		Initial conditions: y0[0] = initial displacement, y0[1] = initial
 		velocity
 	t : 1D NumPy array
@@ -1178,6 +1178,22 @@ def _solode(y0, t, f, xi, w, dt_fixed):
 		Array containing the values of displacement (first column) and
 		velocities (second column) for each time point in th.time, with the
 		initial values y0 in the first row.
+
+	Note
+	----
+	This solver is based on the method derived by `Nigam & Jennings (1969)`_.
+
+	Due to recent developments in Numba, `y0` should not be defined as a
+	mutable object (i.e. a list). All objects provided in the call to
+	:func:`_solode` should be immutable.
+
+	References
+	----------
+	.. _Nigam & Jennings (1969):
+
+	Nigam, N.C., & Jennings, P.C., 1969: "Calculation of response spectra from
+	strong-motion earthquake records", Bulletin of the Seismological Society
+	of America, Vol. 59, No. 2, pp. 909-922.
 	"""
 
 	wd = w*sqrt(1-xi**2)
@@ -1256,7 +1272,7 @@ def loadrs(sfile, abscissa='f', ordinate='sag', length='m', xi=0.05,
 		file with 'f' = frequency and 'T' = period. Default 'f'.
 	ordinate : {'sa', 'sag', 'sv', 'sd'}, optional
 		The physical quantity of the data in the second column of the input
-		file. Default 'sa'. Note that:
+		file. Default 'sag'. Note that:
 
 		* 'sa' = spectral acceleration (unit L/s\ :sup:`2`)
 		* 'sag' = spectral acceleration (unit g)

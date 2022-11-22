@@ -1,7 +1,7 @@
 """
 Package: Qtools
 Module: power_spectrum
-(C) 2020-2021 Andreas H. Nielsen
+(C) 2020-2022 Andreas H. Nielsen
 See README.md for further details.
 """
 
@@ -91,7 +91,7 @@ class PowerSpectrum(Spectrum):
 	-----
 	In Qtools, the term `power spectrum` is synonymous with `power spectral
 	density`. All instances of this class contain power spectral densities.
-	
+
 	The different frequency measures are related by :math:`\\omega = 2 \\pi f`
 	where :math:`f` is the frequency in Hz and :math:`\\omega` is the circular
 	frequency in rad/s. The different spectral densities are related by:
@@ -408,10 +408,10 @@ def transfer(ps, fn, xi, tfun=0):
 	Notes
 	-----
 	The following SDOF transfer functions are supported:
-	
+
 	0. Input: total acceleration --> output: relative displacement
 	1. Input: total acceleration --> output: total acceleration
-	
+
 	All transfer functions assume viscous damping.
 	"""
 
@@ -429,7 +429,7 @@ def transfer(ps, fn, xi, tfun=0):
 		elif tfun==1:
 			unit = ps.unit
 			H2 = (wn**4 + (2*xi*wn*w)**2)/((wn**2 - w**2)**2 + (2*xi*wn*w)**2)
-		
+
 		Wy = H2*ps.Wf
 		return PowerSpectrum(ps.f, Wy, unit=unit)
 
@@ -442,7 +442,7 @@ def transfer(ps, fn, xi, tfun=0):
 			H = -1/(wn**2 - w**2 + 2*1j*xi*wn*w)
 		elif tfun==1:
 			H = -(2*1j*xi*wn*w + wn**2)/(wn**2 - w**2 + 2*1j*xi*wn*w)
-		
+
 		Y = H*ps.X
 		return FourierSpectrum(ps.f, Y, ps.N, ps.dt, L=ps.L, unit=unit)
 
@@ -548,6 +548,9 @@ def kanai_tajimi(we, wg, xig, G0=1, wc=None, xic=1.0, unit='m**2/s**3'):
 	:math:`\\xi_2`,	respectively) must be set appropriately to produce the
 	desired attenuation. In particular, `wc` should be less than `wg`.
 
+	It should be noted that the `n`th spectral moment is infinite (and
+	therefore meaningless) for `n` >= 2.
+
 	References
 	----------
 
@@ -571,4 +574,47 @@ def kanai_tajimi(we, wg, xig, G0=1, wc=None, xic=1.0, unit='m**2/s**3'):
 		label = 'Kanai-Tajimi'
 
 	ps = PowerSpectrum(we/(2*pi), G0*np.abs(H)**2, unit=unit, label=label)
+	return ps
+
+@set_module('qtools')
+def band_limited(we, wc, bw, G0=1, unit='m**2/s**3'):
+	"""
+	Returns a band-limited constant power spectrum.
+
+	Parameters
+	----------
+	we : NumPy 1D array
+		Exicitation frequencies in rad/s.
+	wc : float
+		Central frequency.
+	bw : float
+		Bandwidth.
+	G0 : float, optional
+		Factor used to scale the spectrum. The default is 1.
+	unit : str, optional
+		Unit of the power spectrum. The default value ('m**2/s**3') is
+		appropriate for an acceleration spectrum.
+
+	Returns
+	-------
+	ps : an instance of :class:`.PowerSpectrum`
+
+	Notes
+	-----
+	This function returns a band-limited power spectrum with constant
+	amplitude G0. The lower frequency is computed as
+	`w0` = max(0, `wc` - `bw`/2) and the upper frequency is computed as
+	`w1` = `wc` + `bw`/2. A warning is issued if `wc` - `bw`/2 < 0.
+	"""
+
+	if wc - bw/2 < 0:
+		Info.warn('With the supplied parameters, the lower frequency would'
+			'be less than zero. The lower frequency is set to zero.')
+	w0 = max(0, wc - bw/2)
+	w1 = wc + bw/2
+
+	Gw = np.where(np.logical_and(we > w0, we < w1), G0, 0)
+	label = 'Band-limited'
+
+	ps = PowerSpectrum(we/(2*pi), 2*pi*Gw, unit=unit, label=label)
 	return ps

@@ -1,7 +1,7 @@
 """
 Package: Qtools
 Module: random_vibration
-(C) 2020-2021 Andreas H. Nielsen
+(C) 2020-2022 Andreas H. Nielsen
 See README.md for further details.
 """
 
@@ -92,8 +92,10 @@ class PeakFactorFunction:
 
 	@staticmethod
 	def _transfer(G, w, wn, xi):
+		"""Transfers a power spectrum.
+		Input: total base acceleration --> output: relative displacement."""
 
-		Hsq = wn**4/((wn**2 - w**2)**2 + (2*xi*wn*w)**2)
+		Hsq = 1/((wn**2 - w**2)**2 + (2*xi*wn*w)**2)
 		return G*Hsq
 
 	@staticmethod
@@ -114,7 +116,7 @@ class PeakFactorFunction:
 			The x-coordinates of the data points (frequencies). It is assumed
 			that frequencies in `we` are equi-spaced.
 		wn : float
-			Center frequency.
+			Centre frequency.
 		xi : float
 			Damping ratio.
 		return_index : bool, optional
@@ -319,7 +321,7 @@ class PeakFactorFunction:
 		return cls(pffun, info)
 
 	@classmethod
-	def Vanmarcke_76(cls, smd=10, p=0.5):
+	def Vanmarcke_76(cls, smd=10, p=0.5, opt=0):
 		"""
 		Creates a peak factor function according to the method outlined by
 		`Vanmarcke (1976)`_.
@@ -352,32 +354,79 @@ class PeakFactorFunction:
 		Rosenblueth, Elsevier.
 		"""
 
-		def pffun(Gw, we, wn, xi):
+        # TO-DO: Decide if option 0 or 1 should be only option.
+        # Option 0 was the original default option
+        # Option 1 was implemented as a new development for testing, but
+        # should not be used at this stage.
 
-			rps = np.ones_like(wn)
-			m = (1 - np.exp(-2*xi*wn*smd))/(1 - np.exp(-xi*wn*smd))
-			smd0 = smd*np.exp(-2*(m - 1))
-			xis = xi/(1 - np.exp(-2*xi*wn*smd))
+		if opt==0:
+			def pffun(Gw, we, wn, xi):
 
-			for i in range(wn.size):
-				Gr, wer = cls._enrich(Gw, we, wn[i], xis[i])
-				Gyr = cls._transfer(Gr, wer, wn[i], xis[i])
-				ly0, ly1, ly2 = cls._moments(Gyr, wer, (0, 1, 2))
-				Omgy = sqrt(ly2/ly0)
-				de = (sqrt(1 - ly1**2/(ly0*ly2)))**1.2
-				n = max((Omgy*smd0[i]/(2*pi))/(-log(p)), 0.5)
-				arg = 2*n*(1 - exp(-de*sqrt(pi*log(2*n))))
-				if arg < exp(0.5):
-					Info.deb('arg < exp(0.5) = 1.65 in Vanmarcke_76 peak '
-					  'factor function at f = {} Hz.'.format(wn[i]/(2*pi)))
-					# The following is completely heuristic and might be
-					# improved:
-					arg = (max(2*n, exp(0.5)) - exp(0.5))*de + exp(0.5)
-					Info.note('Assuming arg = {:.2f}. Check results '
-								   'carefully.'.format(arg))
-				rps[i] = sqrt(2*log(arg))
+				rps = np.ones_like(wn)
+				m = (1 - np.exp(-2*xi*wn*smd))/(1 - np.exp(-xi*wn*smd))
+				smd0 = smd*np.exp(-2*(m - 1))
+				xis = xi/(1 - np.exp(-2*xi*wn*smd))
 
-			return rps
+				for i in range(wn.size):
+					Gr, wer = cls._enrich(Gw, we, wn[i], xis[i])
+					Gyr = cls._transfer(Gr, wer, wn[i], xis[i])
+					ly0, ly1, ly2 = cls._moments(Gyr, wer, (0, 1, 2))
+					Omgy = sqrt(ly2/ly0)
+					# Need check on math domain here.
+					de = (sqrt(1 - ly1**2/(ly0*ly2)))**1.2
+					n = max((Omgy*smd0[i]/(2*pi))/(-log(p)), 0.5)
+					arg = 2*n*(1 - exp(-de*sqrt(pi*log(2*n))))
+					if arg < exp(0.5):
+						Info.deb('arg < exp(0.5) = 1.65 in Vanmarcke_76 peak '
+						  'factor function at f = {} Hz.'.format(wn[i]/(2*pi)))
+						# The following is completely heuristic and might be
+						# improved:
+						arg = (max(2*n, exp(0.5)) - exp(0.5))*de + exp(0.5)
+						Info.note('Assuming arg = {:.2f}. Check results '
+									   'carefully.'.format(arg))
+					rps[i] = sqrt(2*log(arg))
+
+				return rps
+
+		elif opt==1:
+			def pffun(Gw, we, wn, xi):
+
+				rps = np.ones_like(wn)
+				l0, l1, l2 = cls._moments(Gw, we, (0, 1, 2))
+				Omg = sqrt(l2/l0)
+				d = (sqrt(1 - l1**2/(l0*l2)))**1.2
+
+				for i in range(wn.size):
+					xis = xi/(1 - np.exp(-2*xi*wn[i]*smd))
+					Gr, wer = cls._enrich(Gw, we, wn[i], xis)
+					Gyr = cls._transfer(Gr, wer, wn[i], xis)
+					ly0, ly1, ly2 = cls._moments(Gyr, wer, (0, 1, 2))
+
+					xis2 = xi/(1 - np.exp(-xi*wn[i]*smd))
+					Gr, wer = cls._enrich(Gw, we, wn[i], xis2)
+					Gyr = cls._transfer(Gr, wer, wn[i], xis2)
+					ly0s2 = cls._moments(Gyr, wer, (0,))[0]
+
+					m = ly0/ly0s2
+					smd0 = smd*exp(-2*(m-1))
+
+					Omgy = sqrt(ly2/ly0)
+					de = (sqrt(1 - ly1**2/(ly0*ly2)))**1.2
+					Info.deb('Tn = {}, Omg = {}, {}, {}'.format(2*pi/wn[i], Omg, Omgy, wn[i]))
+					Info.deb('m = {}, de = {}, {}, {}'.format(m, d, de, sqrt(4*xis/pi)**1.2))
+					n = max((Omgy*smd0/(2*pi))/(-log(p)), 0.5)
+					arg = 2*n*(1 - exp(-de*sqrt(pi*log(2*n))))
+					if arg < exp(0.5):
+						Info.deb('arg < exp(0.5) = 1.65 in Vanmarcke_76 peak '
+						  'factor function at f = {} Hz.'.format(wn[i]/(2*pi)))
+						# The following is completely heuristic and might be
+						# improved:
+						arg = (max(2*n, exp(0.5)) - exp(0.5))*de + exp(0.5)
+						Info.note('Assuming arg = {:.2f}. Check results '
+									   'carefully.'.format(arg))
+					rps[i] = sqrt(2*log(arg))
+
+				return rps
 
 		info = {'smd': smd, 'method': 'Vanmarcke_76', 'p': p}
 
@@ -677,8 +726,8 @@ def calc_comp_ps(Var, wn, xi, method=0, Gin=None, maxIter=100):
 				return_index=True)
 			if j==-1:
 				j = i+1
-			Fr = transfer(Gr, wr, wn[i+1], xis[i])
-			sq = sqrt(1-xis[i]**2)
+			Fr = wn[i+1]**4*transfer(Gr, wr, wn[i+1], xis[i])
+			sq = sqrt(1 - xis[i]**2)
 			bj = wn[i+1]/8*(pi/xis[i] - log((1 + sq)/(1 - sq))/sq)
 			dw = wr[j] - wr[j-1]
 			A = bj + dw/(8*xis[i]**2)
@@ -695,7 +744,7 @@ def calc_comp_ps(Var, wn, xi, method=0, Gin=None, maxIter=100):
 			Gr, wr, j = enrich(G1, wn, wn[i+1], x, return_index=True)
 			if j==-1:
 				j = i+1
-			Fr = transfer(Gr, wr, wn[i+1], x)
+			Fr = wn[i+1]**4*transfer(Gr, wr, wn[i+1], x)
 			dw0 = wr[j] - wr[j-1]
 			dw1 = wr[j+1] - wr[j]
 			t1 = (pi/(4*x) - 1/(4*x)*atan2(2*wm/wn[i+1]*x, 1-(wm/wn[i+1])**2))
@@ -711,7 +760,7 @@ def calc_comp_ps(Var, wn, xi, method=0, Gin=None, maxIter=100):
 		# Last step
 		x = xis[-1]
 		sq = sqrt(1-x**2)
-		Fr1 = transfer(G1, wn, wn[-1], x)
+		Fr1 = wn[-1]**4*transfer(G1, wn, wn[-1], x)
 		dw = wn[-1] - wn[-2]
 		bj = wn[-1]/8*(pi/x - log((1+sq)/(1-sq))/sq)
 		G1[-1] = (Var[-1] - (np.trapz(Fr1[:-1], x=wn[:-1])
@@ -808,12 +857,12 @@ def calc_comp_Var(G, we, xi, method=2):
 				Gr, wr, j = enrich(G, we, wn, x, return_index=True)
 				if j==-1:
 					j = i+1
-				Fr = transfer(Gr, wr, wn, x)
+				Fr = wn**4*transfer(Gr, wr, wn, x)
 				bj = wn/8*(pi/x - log((1 + sq)/(1 - sq))/sq)
 				Var[i+1] = np.trapz(Fr[:j+1], x=wr[:j+1]) + Gr[j]*bj
 			else:
 				Gr, wr = enrich(G, we, wn, x)
-				Fr = transfer(Gr, wr, wn, x)
+				Fr = wn**4*transfer(Gr, wr, wn, x)
 				t1 = (pi/(4*x) - 1/(4*x)*atan2(2*wm/wn*x, 1-(wm/wn)**2))
 				t2 = log((wm*(wm + 2*sq*wn) + wn**2)/
 						 (wm*(wm - 2*sq*wn) + wn**2))/(8*sq)

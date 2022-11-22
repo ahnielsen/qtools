@@ -1,6 +1,6 @@
 """
 Package: Qtools
-(C) 2020-2021 Andreas H. Nielsen
+(C) 2020-2022 Andreas H. Nielsen
 See README.md for further details.
 """
 
@@ -17,7 +17,7 @@ from .time_history import loadth, harmonic, arrayth, calcth
 from .response_spectrum import calcrs, calcrs_cmp, loadrs, meanrs, envelope, peakbroad, dmpinterp
 from .response_spectrum import ec8_2004, dec8_2017, ieee693_2005, pml, eur_vhr
 from .energy_spectrum import calcei
-from .power_spectrum import calcps, calcfs, savesp, transfer, kanai_tajimi
+from .power_spectrum import calcps, calcfs, savesp, transfer, kanai_tajimi, band_limited
 from .random_vibration import pyrvt_rs2ps, convert2ps, convert2rs
 from .plotfun import plotrs, plotps, plotth
 from .direct_s2s import directS2S

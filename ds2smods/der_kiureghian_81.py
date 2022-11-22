@@ -7,7 +7,7 @@ This module contains functions needed to implement the Der Kiureghian et al
 import numpy as np
 from math import sqrt
 from .common import SAfun
-from qtools import config
+from qtools.config import Info
 from numba import jit
 
 #@jit(nopython=True)
@@ -82,7 +82,7 @@ def dk81_main(SAb, fb, zb, fp, zp, gam, phi, me, ze, OD, ND, INRES,
 	
 		# Loop over directions
 		for d in range(ND):
-			config.vprint('Computing ISRS for excitation in direction {}'.format(d))
+			Info.note('Computing ISRS for excitation in direction {}'.format(d))
 			# DEBUG start
 			outfil.write('Direction {}\n'.format(d))
 			# DEBUG end
@@ -95,7 +95,7 @@ def dk81_main(SAb, fb, zb, fp, zp, gam, phi, me, ze, OD, ND, INRES,
 				if len(redInd) > 0:
 					gi[redInd] = 1e-3
 					for i in redInd[:,0]:
-						config.vprint('WARNING: increased equipment mass in mode '
+						Info.warn('Increased equipment mass in mode '
 					   '{} to avoid numerical instability. New mass value: {}'
 					   .format(i,gi[i]*Mi[i]/phi[i]**2))
 				A1 = 1 + (bi+gi)/2 - np.sqrt((1 + (bi+gi)/2)**2 - (1+bi))

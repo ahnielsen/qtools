@@ -4,10 +4,10 @@ Introduction
 Overview
 --------
 
-Qtools is a Python package developed specifically for numerical analysis in the context of 
-earthquake engineering. It contains classes and functions for computation, processing and plotting 
-of time histories, response spectra and power spectra. Qtools defines six new classes, 
-`qtools.ResponseSpectrum`, `qtools.EnergySpectrum`, `qtools.TimeHistory`, `qtools.TimeHistorySet`, 
+Qtools is a Python package developed specifically for numerical analysis in the context of
+earthquake engineering. It contains classes and functions for computation, processing and plotting
+of time histories, response spectra and power spectra. Qtools defines six new classes,
+`qtools.ResponseSpectrum`, `qtools.EnergySpectrum`, `qtools.TimeHistory`, `qtools.TimeHistorySet`,
 `qtools.PowerSpectrum` and `qtools.FourierSpectrum`, and several new functions.
 
 Getting Started
@@ -17,13 +17,13 @@ Place the Qtools package (i.e. the folder named "qtools") in your PYTHONPATH. Th
 
     >>>import qtools as qt
 
-> Note: In the examples given within the documentation, Qtools is always imported as `qt`, and 
+> Note: In the examples given within the documentation, Qtools is always imported as `qt`, and
   NumPy is always imported as `np`.
 
 Prerequisites
 -------------
 
-Qtools relies on the following packages in addition to standard packages such as `math`, `copy` 
+Qtools relies on the following packages in addition to standard packages such as `math`, `copy`
 and `itertools` (for recommended version numbers, see requirements.txt):
 
 * Matplotlib
@@ -45,13 +45,28 @@ Sphinx version 4.0.2.
 Version numbering
 -----------------
 
-Versions are numbered using two digits separated by a full stop: *m.n*. All versions with the same 
+Versions are numbered using two digits separated by a full stop: *m.n*. All versions with the same
 *m* number should be backwards compatible and give the same results. Versions with higher *n*
 number are those with minor additions, clarifications, efficiency improvements, etc. The version
 number is available as `qt.__version__`.
 
 Versions
 --------
+
+### Version 3.1 (November 2022)
+
+- Minor improvements to the docstrings for the `qt.direct_s2s` module, the `qt.directS2S`
+  function and the `qt.loadrs` function.
+- Corrected legacy code in package `qt.ds2smods` (the `qt.config.vprint` function is no longer
+  supported).
+- The argument `mdlist` supplied to function `qt.directS2S` can now be a list of lists or a list
+  of tuples.
+- Small correction in `qt.ds2mods.jiang_15.AR` function.
+- New function `qt.band_limited` added.
+- Due to recent developments in Numba, arguments supplied to Numba-compiled functions should be
+  immutable objects. The docstring for `qt.Response_Spectrum._solode` was updated to reflect this.
+- Added reference to docstring for `qt.response_spectrum._solode`.
+- Added `transparent` option to the `qt.plotrs` function.
 
 ### Version 3.0 (August 2021)
 
@@ -111,7 +126,7 @@ Versions
   `unit` attribute
   introduced in version 1.0).
 - Function `qt.calcps` now determines the unit of the power spectrum.
-- Function `qt.envelope` now takes as its first argument a list containing any number of response 
+- Function `qt.envelope` now takes as its first argument a list containing any number of response
   spectra (`qt.envelope(rslist)`). The old call signature (`qt.envelope(rs1,rs2)`) will still
   work; however, this signature is deprecated and will become obsolete in version 2.0.
 - The `option` argument is no longer used for anything in `qt.envelope`.
@@ -120,10 +135,10 @@ Versions
 
 ### Version 1.0 (November 2020)
 
-- Error corrected in function `qt.calcrs` (affected cases for which the maximum frequency `fmax` 
+- Error corrected in function `qt.calcrs` (affected cases for which the maximum frequency `fmax`
   was greater than the Nyquist frequency of the input time history `th.fNyq`).
 - Function `qt.interpft` added for interpolation of time histories.
-- Attribute `ei` (meant to contain input energy) removed from `qt.ResponseSpectrum`. As a 
+- Attribute `ei` (meant to contain input energy) removed from `qt.ResponseSpectrum`. As a
   replacement, a new class `qt.EnergySpectrum` is introduced.
 - Fourier amplitudes removed from class `qt.PowerSpectrum`.
 - New class `qt.FourierSpectrum` with accompanying creator function `qt.calcfs`.
@@ -131,7 +146,7 @@ Versions
 - Minor change to the criterion for removal of duplicate frequencies in
   `qt.ResponseSpectrum.interp`.
 - Added class method `qt.TimeHistory.differentiate`.
-- In `qt.loadth`, the Nyquist frequency is now rounded to two digits from the decimal point. This 
+- In `qt.loadth`, the Nyquist frequency is now rounded to two digits from the decimal point. This
   was done as a pragmatic way to deal with situations where `th.fNyq` was nearly, but not quite
   equal to a whole number due to finite precision in input data.
 - New argument `truncate` added to function `qt.peakbroad`.
@@ -152,18 +167,17 @@ Principal Engineer, **Atkins**
 
 License
 -------
-Copyright (C) 2020-2021 Andreas H. Nielsen
+Copyright (C) 2020-2022 Andreas H. Nielsen
 
 The Qtools package is released under the GNU General Public License Version 3 or later.
 
-Qtools is free software: you can redistribute it and/or modify it under the terms of the GNU 
+Qtools is free software: you can redistribute it and/or modify it under the terms of the GNU
 General Public License as published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 
-Qtools is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even 
-the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General 
+Qtools is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even
+the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
 Public License for more details.
 
-You should have received a copy of the GNU General Public License along with Qtools (in the file 
+You should have received a copy of the GNU General Public License along with Qtools (in the file
 LICENSE.txt). If not, see <https://www.gnu.org/licenses/>.
-

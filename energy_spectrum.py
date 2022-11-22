@@ -1,7 +1,7 @@
 """
 Package: Qtools
 Module: energy_spectrum
-(C) 2020-2021 Andreas H. Nielsen
+(C) 2020-2022 Andreas H. Nielsen
 See README.md for further details.
 """
 

@@ -1,8 +1,8 @@
 """
 ..
 	Package: Qtools
-	Module: directS2S
-	(C) 2020-2021 Andreas H. Nielsen
+	Module: direct_s2s
+	(C) 2020-2022 Andreas H. Nielsen
 	See README.md for further details.
 
 Overview
@@ -20,13 +20,13 @@ The module implements the following methods:
 The first method requires special treatment of the vertical direction.
 Therefore, in the implementation of the first method, it was assumed that
 the third direction is the vertical direction.
-The second method does not require that the user distinguish between horizontal
-and vertical, and so the vertical direction can be any of the three principal
-diretions.
+In the second method, no distinction between horizontal and vertical
+excitation is required, and so the vertical direction can be any of the three
+principal diretions.
 A more complete documentation is available as a standalone PDF document.
 
 .. caution::
-	
+
 	None of the implemented methods are suitable for systems with high damping
 	values (greater than, say, 10%).
 	The Der Kiureghian (1981) method is not suitable for systems with closely
@@ -34,7 +34,7 @@ A more complete documentation is available as a standalone PDF document.
 
 Using the module
 ----------------
-The modulus provides one entry function called :func:`DirectS2S`. There are
+The module provides one entry function called :func:`DirectS2S`. There are
 two ways to provide the required response spectra and modal data to the
 function:
 
@@ -50,18 +50,20 @@ function:
 
 	   where `rsx1` is the input spectrum in the x-direction at damping level
 	   1, `rsx2` is the input spectrum in the x-direction at damping level 2,
-	   and so on. The response spectra in each sublist should be arranged so
+	   and so on. The response spectra in each sublist must be arranged so
 	   that the damping level is increasing from left to right.
 	   All response spectra must be defined at the same frequencies (the class
 	   method :meth:`.ResponseSpectrum.interp` can be used for this purpose).
-	   Each sublist must contain response spectra defined at the same
-	   damping levels.
-	b. A list of NumPy arrays (`mdlist`) that defines the modal properties of
+	   The damping levels must be consistent from one sublist to the next so
+	   that the damping level of `rsx1` is the same as the damping level of
+	   `rsy1`, which again is the same as the damping level of `rsz1`, and so
+	   on.
+	b. A list of arrays (`mdlist`) that defines the modal properties of
 	   the primary system, and where ``mdlist[0]`` is a 1D array with
 	   natural frequencies (with ``Np = len(mdlist[0])``);
 	   ``mdlist[1]`` is a 1D array with modal damping ratios;
-	   ``mdlist[2]`` is a 2D array with participation factors (the shape of this
-	   array must be ``(Np,ND)`` or just ``(Np,)`` if ``ND == 1``);
+	   ``mdlist[2]`` is a 2D array with participation factors (the shape of
+	   this array must be ``(Np,ND)`` or just ``(Np,)`` if ``ND == 1``);
 	   ``mdlist[3]`` is a 2D array with modal displacements (the shape of this
 	   array must be ``(Np,ND)`` or just ``(Np,)`` if ``ND == 1``).
 
@@ -164,6 +166,10 @@ References
 
 """
 
+# TO-DO:
+# Implement option to choose vertical direction as sole excitation direction
+# Only important for Jiang et al method.
+
 import numpy as np
 import time
 from pathlib import Path
@@ -175,7 +181,8 @@ from qtools import ds2smods as dsm
 def directS2S(ND, OD, z0, method='Jiang (2015)', zmin=0.001, INRES=True,
 			  **kwargs):
 	"""Compute an in-structure response spectrum (ISRS) using a direct
-	spectrum-to-spectrum method.
+	spectrum-to-spectrum method. The named parameters supported by the
+	``**kwargs`` container are listed under **Other parameters** below.
 
 	Parameters
 	----------
@@ -198,47 +205,55 @@ def directS2S(ND, OD, z0, method='Jiang (2015)', zmin=0.001, INRES=True,
 	wd : str, optional
 		Path to working directory. If this is not provided, `wd` will default
 		to the current working directory.
-		
-	Other named parameters
-	----------------------
+
+	Other parameters
+	----------------
 	rslist : a list of lists of response spectra, optional
 		Input spectra for ISRS computation. If `rslist` is not provided,
 		the function will look for a file named `SpectralData.txt` in the
 		working directory.
 		The length of `rslist` must satisfy: ``len(rslist) >= ND``.
-		The length of ``rslist[0]`` determines the number of damping values (`Nzb`).
+		The length of ``rslist[0]`` determines the number of damping values
+		(`Nzb`).
 		If ``rslist[1]`` is provided, then ``len(rslist[1]) == len(rslist[0])``.
 		If ``rslist[2]`` is provided, then ``len(rslist[2]) == len(rslist[0])``.
-	mdlist : a list of NumPy arrays, optional.
+	mdlist : a list of arrays, optional
 		This parameter contains the modal properties of the primary system,
 		where:
 
 		* ``mdlist[0]`` is a 1D array with natural frequencies
-		  (with ``Np = len(mdlist[0])``);
-		* ``mdlist[1]`` is a 1D array with modal damping ratios;
+		  (with ``Np = len(mdlist[0])`` being the number of modes);
+		* ``mdlist[1]`` is a 1D array with modal damping ratios
+		  (the shape of this array must be (`Np`,));
 		* ``mdlist[2]`` is a 2D array with participation factors
-		  (the shape of this array must be (`Np`, `ND`);
+		  (the shape of this array must be (`Np`, `ND`));
 		* ``mdlist[3]`` is a 1D or 2D array with modal displacements
 		  (the shape of this array must be (`Np`, `ND`) or just (`Np`,)
 		  if `ND` = 1).
 
-	Other named parameters (Jiang 2015)
-	-----------------------------------
+		Lists and tuples are acceptable types of arrays. The function will
+		convert array-like objects into ndarrays.
 	fc : tuple of floats, required
-		Corner frequencies. See the DirectS2S Documentation.
+		Corner frequencies. Only used with the Jiang (2015) method. See the
+		DirectS2S documentation for further information.
 	GT : str, optional
 		Ground type ('H' for hard, 'S' for soft). Only relevant for vertical
-		excitation. Default 'H'.
-		
-	Other named parameters (Der Kiureghian 1981)
-	--------------------------------------------
+		excitation. Only used with the Jiang (2015) method. Default 'H'.
 	m0 : float, optional
-		Mass of secondary system. Default value 0.
+		Mass of secondary system. Only used with the Der Kiureghian (1981)
+		method. Default value 0.
 
 	Returns
 	-------
 	rs : an instance of class ResponseSpectrum
 		The in-structure response spectrum for response in direction `OD`.
+
+	Examples
+	--------
+	The following definition of `mdlist` is appropriate for a single
+	degree-of-system with frequency `f0` and damping ratio `z0`::
+
+		mdlist = [[f0], [z0], [[1]], [1]]
 
 	Notes
 	-----
@@ -259,10 +274,10 @@ def directS2S(ND, OD, z0, method='Jiang (2015)', zmin=0.001, INRES=True,
 	# Retrieve modal information (from textfile if not supplied in **kwargs)
 	if 'mdlist' in kwargs:
 		mdlist = kwargs['mdlist']
-		fp = mdlist[0]
+		fp = np.asarray(mdlist[0])
 		zp = np.fmax(mdlist[1],zmin)
-		gam = mdlist[2]
-		phi = mdlist[3]
+		gam = np.asarray(mdlist[2])
+		phi = np.asarray(mdlist[3])
 	else:
 		MD = np.loadtxt(wd / 'ModalData.txt')
 		fp = MD[:,0]
@@ -307,7 +322,7 @@ def directS2S(ND, OD, z0, method='Jiang (2015)', zmin=0.001, INRES=True,
 			GT = 'H'
 		SA_ISRS = dsm.j15_main(SAb, fb, zb, fp, zp, gam, phi, z0, OD, ND,
 						 INRES, fc, GT)
-		
+
 	elif method=='Der Kiureghian (1981)':
 		if 'm0' in kwargs:
 			m0 = kwargs['m0']
@@ -315,7 +330,7 @@ def directS2S(ND, OD, z0, method='Jiang (2015)', zmin=0.001, INRES=True,
 			m0 = 0.
 		SA_ISRS = dsm.dk81_main(SAb, fb, zb, fp, zp, gam, phi, m0, z0, OD, ND,
 						  False)
-	
+
 	else:
 		raise ValueError('Method {} is not supported.'.format(method))
 
@@ -339,6 +354,6 @@ def directS2S(ND, OD, z0, method='Jiang (2015)', zmin=0.001, INRES=True,
 	# End timing
 	stop = time.perf_counter()
 	Info.note('Time to execute (min): {:6.2f}'.format((stop-start)/60))
+	Info.end()
 
 	return rs
-

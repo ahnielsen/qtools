@@ -23,6 +23,7 @@ Power spectrum creation
 
 .. autofunction:: qtools.calcps
 .. autofunction:: qtools.kanai_tajimi
+.. autofunction:: qtools.band_limited
 
 See also :func:`qtools.convert2ps` (converts a response spectrum into a power spectrum).
 

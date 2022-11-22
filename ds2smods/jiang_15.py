@@ -7,19 +7,19 @@ method.
 import numpy as np
 from math import pi, exp, log, log10, cos, sqrt
 from .common import SAfun
-from qtools import config
+from qtools.config import Info
 from numba import jit
 
 def j15_main(SAb, fb, zb, fp, zp, gam, phi, z0, OD, ND, INRES, fc, GT):
 	"""
 	Main function for the direct spectrum-to-spectrum method developed by
 	Jiang et al. (2015).
-	
+
 	Parameters
 	----------
 	SAb : 3D NumPy array
 		Spectral accelerations at the base of the primary structure
-		(the input spectrum), with ``SAb[i,j,d]`` returning the spectral 
+		(the input spectrum), with ``SAb[i,j,d]`` returning the spectral
 		acceleration at frequency ``fb[i]`` and damping ratio ``zb[j]`` in
 		direction `d`.
 	fb : 1D NumPy array
@@ -58,13 +58,13 @@ def j15_main(SAb, fb, zb, fp, zp, gam, phi, z0, OD, ND, INRES, fc, GT):
 	"""
 
 	Nfb = len(fb)
-	
+
 	# Initialise in-structure spectral acceleration array
 	SA_ISRS = np.zeros_like(SAb[:,0,0])
 
 	# Loop over directions
 	for d in range(ND):
-		config.vprint('Computing ISRS for excitation in direction {}'.format(d))
+		Info.note('Computing ISRS for excitation in direction {}'.format(d))
 		# Compute spectral accelerations at structural frequencies and damping ratios
 		SAp = SAfun(SAb[:,:,d], fb, zb, fp, zp)
 		# Compute spectral acceleration at the frequency of the secondary system
@@ -78,12 +78,13 @@ def j15_main(SAb, fb, zb, fp, zp, gam, phi, z0, OD, ND, INRES, fc, GT):
 			# Append the residual modal displacement to the u array
 			ur = 1 - np.sum(u)
 			if ur < 0 or ur >= 1:
-				config.vprint('WARNING: with ur = {}, the residual response is outside '
+				Info.warn('With ur = {}, the residual response is outside '
 				  'the expected range (0 <= ur < 1)'.format(ur))
-				config.vprint('The residual response is ignored (ur = 0)')
+				Info.warn('The residual response is ignored (ur = 0)',
+				  prepend=False)
 				ur = 0
 			else:
-				config.vprint('The residual response is ur = {}'.format(ur))
+				Info.note('The residual response is ur = {}'.format(ur))
 			u_r = np.append(u,ur)
 			# Append appropriate values to other arrays
 			# (note: the values appended to fp and zp are somewhat arbitrary)
@@ -131,26 +132,26 @@ def AR(f, fc, z, d, GT):
 	-------
 	AR : float
 		Spectral amplification ratio.
-		
+
 	Notes
 	-----
 	This function is partially based on `Li et al. (2015)`_. For more
 	information, see the DirectS2S Documentation.
-	
+
 	References
 	----------
 	.. _Li et al. (2015):
 
 		Li, B; Jiang, W; Xie W-C; & Pandey, M.D., 2015: "Generate floor response
-		spectra, Part 2: Response spectra for equipment-structure resonance", 
+		spectra, Part 2: Response spectra for equipment-structure resonance",
 		*Nuclear Engineering and Design*, **293**, pp. 547-560
 		(http://dx.doi.org/10.1016/j.nucengdes.2015.05.033).
 
 	"""
-	
+
 	lz = log(100*z)
 	if d == 0 or d == 1:
-		SAm = 0.02*lz**2 - 0.25*lz + 1.14
+		SAm = 0.02*lz**2 - 0.28*lz + 1.14
 		c1 = 0.06*lz**2 - 0.92*lz + 3.03
 		c2 = 0.02*lz**3 - 0.04*lz**2 - 0.02*lz + 1.12
 	elif d == 2:
@@ -213,7 +214,7 @@ def resp(SAp, SA0, u, f0, fp, z0, zp, fc, d, GT, INRES):
 	R : 1D NumPy array
 		The modal response values.
 	"""
-	
+
 	N = len(SAp)
 	R = np.empty_like(SAp)
 	AR0 = AR(f0, fc, z0, d, GT)

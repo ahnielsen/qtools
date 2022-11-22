@@ -1,7 +1,7 @@
 """
 Package: Qtools
 Module: plotfun
-(C) 2020-2021 Andreas H. Nielsen
+(C) 2020-2022 Andreas H. Nielsen
 See README.md for further details.
 """
 
@@ -57,6 +57,10 @@ def plotrs(*args, **kwargs):
 		name should include the desired extension (e.g. 'png' or 'svg'), from
 		which the file format will be determined as per
 		:func:`matplotlib.pyplot.savefig`.
+	transparent : bool
+		This parameter will be passed directly to
+		:func:`matplotlib.pyplot.savefig` (if a `filename` is given). Default
+		``False``.
 	dpi : int
 		Dots per inch to use if saving plot to file. Default None.
 	right : float
@@ -104,6 +108,7 @@ def plotrs(*args, **kwargs):
 	else:
 		show_legend = False
 	filename = kwargs.get('filename', '')
+	transparent = kwargs.get('transparent', False)
 	dpi = kwargs.get('dpi', None)
 	grid = kwargs.get('grid', {'which': 'major', 'color': '0.75'})
 
@@ -174,9 +179,9 @@ def plotrs(*args, **kwargs):
 
 	if show_legend:
 		ax.legend(**legend)
-	
+
 	ax.grid(**grid)
-	
+
 	if xscale == 'log':
 		ax.xaxis.set_major_formatter(FuncFormatter(format_func))
 		if log10(xmax/xmin) < 1:
@@ -187,9 +192,10 @@ def plotrs(*args, **kwargs):
 		ax.yaxis.set_major_formatter(FuncFormatter(format_func))
 		# Note: in Matplotlib version 3.3.4, the following call should be valid
 		#ax.yaxis.set_major_formatter(format_func)
-	
+
 	if len(filename) > 0:
-		plt.savefig(filename, dpi=dpi, bbox_inches='tight')
+		plt.savefig(filename, dpi=dpi, bbox_inches='tight',
+			  transparent=transparent)
 
 	plt.show()
 
@@ -245,7 +251,7 @@ def plotps(*args, **kwargs):
 	The line format can be set in the 'fmt' attribute of a spectrum.
 	The line format is passed directly to :func:`matplotlib.pyplot.plot` as
 	'fmt'.
-	
+
 	Examples
 	--------
 	See :func:`qtools.plotrs`.
@@ -320,7 +326,7 @@ def plotps(*args, **kwargs):
 
 	if show_legend:
 		ax.legend(**legend)
-	
+
 	ax.grid(**grid)
 
 	if len(filename) > 0:
@@ -392,7 +398,7 @@ def plotth(*args, **kwargs):
 	# Set lower limit on x-axis if specified
 	if 'left' in kwargs:
 		plt.xlim(left=kwargs['left'])
-	
+
 	# Set upper limit on y-axis if specified
 	if 'top' in kwargs:
 		plt.ylim(top=kwargs['top'])

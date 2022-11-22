@@ -1,12 +1,12 @@
 """
 Package: Qtools
 Module: config
-(C) 2020-2021 Andreas H. Nielsen
+(C) 2020-2022 Andreas H. Nielsen
 See README.md for further details.
 """
 
 # Configuration parameters
-version = '3.0'
+version = '3.1'
 # Note to self: remember to also update version in the following files:
 # ./README.md
 
