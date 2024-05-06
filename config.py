@@ -6,7 +6,7 @@ See README.md for further details.
 """
 
 # Configuration parameters
-version = '3.1'
+version = '3.2'
 # Note to self: remember to also update version in the following files:
 # ./README.md
 
@@ -35,21 +35,21 @@ def set_module(module):
 class Info:
 	"""
 	Provides output from Qtools.
-	
+
 	Notes
 	-----
 	Use ``Info.setLevel`` to set the level of output. For example::
-		
+
 		>>> qt.Info.setLevel(1)
-	
+
 	The following output levels are recognised:
-		
+
 		0. No output (silent mode)
 		1. Warnings only
 		2. Warnings and general information (default)
 		3. All of the above and debug information
 	"""
-	
+
 	# Set default level
 	level = 2
 
@@ -58,7 +58,7 @@ class Info:
 		"""Sets the output level.
 		"""
 		cls.level = lv
-	
+
 	@classmethod
 	def getLevel(cls):
 		"""Returns the current output level."""
@@ -70,19 +70,19 @@ class Info:
 			if prepend:
 				warning = 'WARNING: ' + warning
 			print(warning)
-	
+
 	@classmethod
 	def note(cls, info):
 		if cls.level >= 2:
 			print(info)
-	
+
 	@classmethod
 	def deb(cls, info, prepend=True):
 		if cls.level >= 3:
 			if prepend:
 				info = 'DEBUG: ' + info
 			print(info)
-		
+
 	@classmethod
 	def end(cls):
 		if cls.level >= 2:
@@ -91,4 +91,3 @@ class Info:
 # Predecessor to the Info class
 # verbose = True
 # vprint = print if verbose else lambda *a, **k: None
-

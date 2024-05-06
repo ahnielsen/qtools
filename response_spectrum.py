@@ -56,6 +56,10 @@ class ResponseSpectrum:
 
 	Attributes
 	----------
+	color : str
+		The color used for plotting the response spectra in
+		:func:`qtools.plotrs`. Use named colors supported in Matplotlib.
+		Set the color through :meth:`.setLineFormat`.
 	f : 1D NumPy array
 		Frequency in units of Hz (1/s).
 	fmt : str
@@ -95,6 +99,11 @@ class ResponseSpectrum:
 
 	Multiplication is supported: `a*rs` multiplies the spectral ordinates of
 	`rs` with `a` where `a` must be an integer or a float.
+
+	Each instance of ResponseSpectrum is callable. For example, the following
+	statement computes the spectral acceleration value at frequency `f`::
+
+		sa = rs(f)
 
 	"""
 
@@ -639,8 +648,7 @@ def peakbroad(rs, df=0.15, df_sign='plus/minus', peak_cap=False, truncate=True):
 
 	Notes
 	-----
-	Input energy is not broadened. The new spectrum will have zero input
-	energy. The peak broadening function assumes that the spectrum is a series
+	The peak broadening function assumes that the spectrum is a series
 	of straight lines on a semi-log graph (with a logarithmic frequency scale).
 	If the spectrum is better represented by a series of straight lines on a
 	log-log graph, use the class method :meth:`.ResponseSpectrum.interp` with
@@ -1099,7 +1107,7 @@ def calcrs_cmp(ths, ffile=None, nf=200, fmin=0.1, fmax=100, xi=0.05,
 	y0 = np.array([0.0,0.0])
 
 	if cmp == 'GM' or cmp == 'MC' or cmp == 'MD':
-		angles = [np.radians(theta)]
+		angles = np.radians([theta])
 	elif cmp == 'GMRotD50':
 		angles = np.radians(np.arange(0, 90, step=1))
 	else:

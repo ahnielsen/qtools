@@ -15,7 +15,7 @@ from math import log10
 # Define a formatter for tick labels
 def format_func(x, pos):
 	"""
-	Formats tick labels like Excel's General format.
+	Formats tick labels like Excel's general format.
 	"""
 	if x < 1:
 		pr = int(-log10(x))
@@ -75,12 +75,17 @@ def plotrs(*args, **kwargs):
 		The keys in this dictionary will be used to set the arguments in a
 		call to :func:`matplotlib.pyplot.grid`. Default: ``{'which': 'major',
 		'color': '0.75'}``
+	fig_size : (float, float)
+		Set the figure size. The first value in the tuple is the figure width
+		(in cm) and the second is the figure height (also in cm). If None is
+		passed, the default Matplotlib values will be used. Default: None.
 
 	Notes
 	-----
 	The line format can be set in the 'fmt' attribute of a response spectrum.
 	The line format is passed directly to :func:`matplotlib.pyplot.plot` as
-	'fmt'.
+	'fmt'. Additionally, the color can be set in
+	:meth:`qtools.ResponseSpectrum.setLineFormat`.
 
 	Examples
 	--------
@@ -111,6 +116,7 @@ def plotrs(*args, **kwargs):
 	transparent = kwargs.get('transparent', False)
 	dpi = kwargs.get('dpi', None)
 	grid = kwargs.get('grid', {'which': 'major', 'color': '0.75'})
+	fig_size = kwargs.get('fig_size', None)
 
 	plt.style.use(style)
 
@@ -137,10 +143,13 @@ def plotrs(*args, **kwargs):
 				   ' response spectrum plot'.format(xaxis))
 	if yaxis == 'sa':
 		ax.set_ylabel('Spectral acceleration [g]')
+		ucf = 1.0
 	elif yaxis == 'sv':
-		ax.set_ylabel('Spectral velocity [m/s]')
+		ax.set_ylabel('Spectral velocity [cm/s]')
+		ucf = 100
 	elif yaxis == 'sd':
-		ax.set_ylabel('Spectral displacement [m]')
+		ax.set_ylabel('Spectral displacement [mm]')
+		ucf = 1000
 	elif yaxis == 'ei':
 		ax.set_ylabel('Spectral input energy [J/kg]')
 	else:
@@ -155,9 +164,9 @@ def plotrs(*args, **kwargs):
 		xmax = max(np.amax(x),xmax)
 		xmin = min(np.amin(x),xmin)
 		if rs.color == '':
-			plot(x, y, rs.fmt, label=rs.label)
+			plot(x, ucf*y, rs.fmt, label=rs.label)
 		else:
-			plot(x, y, rs.fmt, label=rs.label, color=rs.color)
+			plot(x, ucf*y, rs.fmt, label=rs.label, color=rs.color)
 
 	# Set upper limit on x-axis if specified
 	if 'right' in kwargs:
@@ -181,6 +190,11 @@ def plotrs(*args, **kwargs):
 		ax.legend(**legend)
 
 	ax.grid(**grid)
+
+	if fig_size is not None:
+		w = fig_size[0]/2.54
+		h = fig_size[1]/2.54
+		fig.set_size_inches((w,h))
 
 	if xscale == 'log':
 		ax.xaxis.set_major_formatter(FuncFormatter(format_func))

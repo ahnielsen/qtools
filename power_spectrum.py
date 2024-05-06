@@ -342,8 +342,9 @@ def calcfs(th, M=None):
 
 	Notes
 	-----
-	The original time history is recovered exactly (within numerical precision)
-	by using :func:`.calcth` provided ``M = th.ndat``.
+	The time history must have fixed time step. The original time history is
+	recovered exactly (within numerical precision) by using :func:`.calcth`
+	provided ``M = th.ndat``.
 
 	"""
 	# Initial checks etc.

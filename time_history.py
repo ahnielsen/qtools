@@ -5,6 +5,7 @@ Module: time_history
 See README.md for further details.
 """
 
+import copy
 import numpy as np
 from scipy.integrate import cumtrapz, trapz
 from math import pi, ceil, sqrt, isclose
@@ -29,7 +30,7 @@ class TimeHistory:
 	fmt : str, optional
 		The line format to be used when plotting this time history (see notes
 		on the `fmt` parameter in `Matplotlib documentation
-		<https://matplotlib.org/api/_as_gen/matplotlib.pyplot.plot.html>`_.
+		<https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.plot.html>`_.
 		With the default value, ``fmt = ''`` (an empty string), the history
 		will be plotted with the default matplotlib.pyplot line styles.
 
@@ -90,6 +91,9 @@ class TimeHistory:
 	in the `time` attribute. However, this functionality should not be used to
 	define a new time history with shorter time steps: to this end, use the
 	class method :meth:`interpft`.
+
+	Multiplication is supported: `a*th` multiplies the ordinates of `th`
+	(i.e. the `data`) with `a` where `a` must be an integer or a float.
 	"""
 	def __init__(self, time, data, ordinate='a', fmt=''):
 
@@ -139,6 +143,17 @@ class TimeHistory:
 	def __iter__(self):
 		return zip(self.time, self.data)
 
+	def __mul__(self,factor):
+		if (type(factor) == float or type(factor) == int):
+			product = copy.deepcopy(self)
+			product.data *= factor
+			return product
+		else:
+			return NotImplemented
+
+	def __rmul__(self,factor):
+		return self.__mul__(factor)
+
 #	def __next__(self):
 #		if self.l < self.ndat:
 #			t = self.time[self.l]
@@ -165,7 +180,7 @@ class TimeHistory:
 
 	def writeth(self, filename, fmt='%8.4f, %8.4f'):
 		"""Write the time history to text file.
-		NOTE: Needs development
+		NOTE: Needs development.
 		"""
 		a = np.transpose(np.array([self.time, self.data]))
 		np.savetxt(filename,a,fmt=fmt)
@@ -404,29 +419,29 @@ def harmonic(dt, f=1.0, Td=None, A=1.0, ordinate='a'):
 
 	Notes
 	-----
-	If ``Td/dt`` is not a whole number, then the duration will be increased
-	such that ``Td = ceil(Td/dt)*dt``.
+	If ``Td/dt`` is not an integer, then the duration will be increased
+	such that ``Td = ceil(Td/dt)*dt``. The number of datapoints in the returned
+	time history (``th.ndat``) will be ``ceil(Td/dt)+1``.
 	"""
 
 	if Td is None:
 		Td = 100*dt
-	n = ceil(Td/dt)
-	Tdn = n*dt
+	n = ceil(Td/dt)+1
+	Tdn = (n-1)*dt
 	if Tdn != Td:
 		Info.warn('The duration has been increased to {:6.2f} '
 				'seconds to accommodate {} timesteps'.format(Tdn,n))
-	Td = Tdn
 	w = 2*pi*f
 	time = np.linspace(0., Tdn, n)
 	data = A*np.sin(w*time)
 	th = TimeHistory(time, data, ordinate)
-	th.setdt(dt,True,1/(2*dt))
+	th.setdt(dt, True, 1/(2*dt))
 
 	return th
 
 @set_module('qtools')
 def loadth(sfile, ordinate='a', dt=-1.0, factor=1.0, delimiter=None,
-		   comments='#',skiprows=0):
+		   comments='#', skiprows=0, fmt=''):
 	"""
 	Create a time history from a text file.
 
@@ -452,6 +467,9 @@ def loadth(sfile, ordinate='a', dt=-1.0, factor=1.0, delimiter=None,
 		comment. None implies no comments. The default is '#'.
 	skiprows : int, optional
 		Skip the first `skiprows` lines. Default 0.
+	fmt : str, optional
+		This is passed directly to the contructor for the TimeHistory class and
+		is used to control the plotting style.
 
 	Returns
 	-------
@@ -555,8 +573,8 @@ def loadth(sfile, ordinate='a', dt=-1.0, factor=1.0, delimiter=None,
 		data *= factor
 
 	# Create instance of TimeHistory
-	th = TimeHistory(time,data,ordinate)
-	th.setdt(dt,dt_fixed,round(fNyq,2))
+	th = TimeHistory(time, data, ordinate, fmt=fmt)
+	th.setdt(dt, dt_fixed, round(fNyq,2))
 
 	# Set label (removing the file path and the extension, if any)
 	th.setLabel(Path(sfile).stem)
@@ -682,4 +700,6 @@ def calcth(fs, ordinate='a'):
 	t = np.linspace(0, fs.dt*(ndat-1), ndat)
 
 	th = TimeHistory(t, x, ordinate=ordinate)
+	th.setdt(fs.dt, True, fs.f[-1])
+
 	return th

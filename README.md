@@ -53,6 +53,19 @@ number is available as `qt.__version__`.
 Versions
 --------
 
+### Version 3.2 (May 2024)
+
+- Corrected an attribute error in `qt.calcrs_cmp` which caused the function to terminate.
+- Added a line specifying the parameters `dt`, `dt_fixed` and `fNyq` in `qt.calcth`.
+  This line was missing in previous versions.
+- Added the argument `fmt` to `qt.loadth`.
+- Minor updates to the documentation.
+- Added the argument `fig_size` to `qt.plotrs`.
+- Changed the default units for plotting in `qt.plotrs` to cm/s for spectral acceleration and mm
+  for spectral displacement.
+- Implemented multiplication method (`__mul__()`) for class TimeHistory.
+- Corrected a minor error in `qt.harmonic`, which gave incorrect time step.
+
 ### Version 3.1 (November 2022)
 
 - Minor improvements to the docstrings for the `qt.direct_s2s` module, the `qt.directS2S`
@@ -64,7 +77,7 @@ Versions
 - Small correction in `qt.ds2mods.jiang_15.AR` function.
 - New function `qt.band_limited` added.
 - Due to recent developments in Numba, arguments supplied to Numba-compiled functions should be
-  immutable objects. The docstring for `qt.Response_Spectrum._solode` was updated to reflect this.
+  immutable objects. The docstring for `qt.response_spectrum._solode` was updated to reflect this.
 - Added reference to docstring for `qt.response_spectrum._solode`.
 - Added `transparent` option to the `qt.plotrs` function.
 
