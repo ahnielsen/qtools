@@ -1,12 +1,12 @@
 """
 Package: Qtools
 Module: config
-(C) 2020-2022 Andreas H. Nielsen
+(C) 2020-2025 Andreas H. Nielsen
 See README.md for further details.
 """
 
 # Configuration parameters
-version = '3.2'
+version = '3.3'
 # Note to self: remember to also update version in the following files:
 # ./README.md
 
@@ -55,8 +55,7 @@ class Info:
 
 	@classmethod
 	def setLevel(cls, lv):
-		"""Sets the output level.
-		"""
+		"""Sets the output level."""
 		cls.level = lv
 
 	@classmethod
@@ -87,7 +86,3 @@ class Info:
 	def end(cls):
 		if cls.level >= 2:
 			print('------------------------------------------')
-
-# Predecessor to the Info class
-# verbose = True
-# vprint = print if verbose else lambda *a, **k: None

@@ -1,7 +1,7 @@
 """
 Package: Qtools
 Module: time_history
-(C) 2020-2022 Andreas H. Nielsen
+(C) 2020-2025 Andreas H. Nielsen
 See README.md for further details.
 """
 
@@ -103,7 +103,6 @@ class TimeHistory:
 		self.data = data
 		self.dt = time[1]-time[0]
 		self.k = 0
-		#self.l = 0
 		self.fNyq = 1/(2*self.dt)
 		self.ordinate = ordinate
 		self.label = '_nolegend_'
@@ -111,7 +110,7 @@ class TimeHistory:
 		self.ndat = len(time)
 		self.fmt = fmt
 
-		# Find the PGA and calculate rms and 0.5-0.75 duration
+		# Find the PGA
 		if self.ordinate == 'a':
 			self.pga = np.amax(np.fabs(self.data))
 
@@ -154,16 +153,6 @@ class TimeHistory:
 	def __rmul__(self,factor):
 		return self.__mul__(factor)
 
-#	def __next__(self):
-#		if self.l < self.ndat:
-#			t = self.time[self.l]
-#			d = self.data[self.l]
-#			self.l += 1
-#		else:
-#			self.l = 0
-#			raise StopIteration
-#		return (t,d)
-
 	def setdt(self, dt, dt_fixed, fNyq):
 		"""Set the values of `dt`, `dt_fixed` and `fNyq`."""
 		self.dt = dt
@@ -204,6 +193,11 @@ class TimeHistory:
 		``k = 1`` results in the same time history. This method uses
 		:func:`numpy.fft.rfft` and :func:`numpy.fft.irfft` to perform the
 		interpolation.
+		
+		Warning: using :func:`differentiate` on a time history that has been
+		interpolated using this function will lead to erroneous results. The
+		differentiated time history will show spurious occilations or ringing 
+		artifacts, especially at the beginning and the end of the history.
 
 		Example
 		-------
@@ -308,7 +302,7 @@ class TimeHistory:
 
 	def differentiate(self):
 		"""Differentiate the time history with respect to time.
-		This function uses :func:`numpy.gradient()` to perform the operation.
+		This function uses :func:`numpy.gradient` to perform the operation.
 		"""
 
 		Info.note('Differentiating a time history can degrade the '
@@ -326,6 +320,7 @@ class TimeHistory:
 			Info.note('Time history {} has been differentiated and '
 					   'now represents acceleration.'.format(self.label))
 			self.ordinate = 'a'
+			self.pga = np.amax(np.fabs(self.data))
 		elif self.ordinate=='a':
 			Info.warn('You are differentiating an acceleration time history.')
 			self.ordinate = 'n/a'
@@ -379,6 +374,8 @@ class TimeHistorySet:
 				'history must be equal.'
 			assert ths[0].dt_fixed and th.dt_fixed, 'All time histories in a '\
 				'set must be defined with either fixed or variable time step.'
+			assert ths[0].ordinate == th.ordinate, 'All time histories in a '\
+				'set must have same ordinates.'
 
 		self.Nth = len(ths)
 		self.ths = ths
@@ -447,7 +444,7 @@ def loadth(sfile, ordinate='a', dt=-1.0, factor=1.0, delimiter=None,
 
 	Parameters
 	----------
-	sfile : str
+	sfile : str or path-like object
 		The path and name of the input file.
 	ordinate : {'d', 'v', 'a'}, optional
 		The physical type of the data imported from `sfile`, with
@@ -513,9 +510,6 @@ def loadth(sfile, ordinate='a', dt=-1.0, factor=1.0, delimiter=None,
 		...
 
 	"""
-
-	if type(sfile)!=str:
-		raise TypeError('The first argument to loadth() must be a string.')
 
 	if dt > 0.0:
 		dt_fixed = True

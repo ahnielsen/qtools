@@ -2,7 +2,7 @@
 ..
 	Package: Qtools
 	Module: direct_s2s
-	(C) 2020-2022 Andreas H. Nielsen
+	(C) 2020-2025 Andreas H. Nielsen
 	See README.md for further details.
 
 Overview

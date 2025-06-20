@@ -1,7 +1,7 @@
 """
 Package: Qtools
 Module: response_spectrum
-(C) 2020-2022 Andreas H. Nielsen
+(C) 2020-2025 Andreas H. Nielsen
 See README.md for further details.
 """
 
@@ -497,7 +497,8 @@ def meanrs(rslist, kind='loglin', sd_extrapolate=True, label='_nolegend_',
 
 
 @set_module('qtools')
-def envelope(rslist, kind='loglin', radp=False, sd_extrapolate=True):
+def envelope(rslist, kind='loglin', radp=False, sd_extrapolate=True, 
+			 label='_nolegend_', fmt=''):
 	"""
 	Compute the envelope of two or more response spectra.
 
@@ -520,6 +521,12 @@ def envelope(rslist, kind='loglin', radp=False, sd_extrapolate=True):
 		is the minimum frequency in the frequency arrays of `rs1` or `rs2`
 		(whichever requires extrapolation). See also notes below.
 		Default True.
+	label : str, optional
+		Label to use in the legend when plotting the response spectrum.
+	fmt : str, optional
+		The line format to be used when plotting this spectrum. See parameters
+		under :class:`ResponseSpectrum`.
+	
 
 	Returns
 	-------
@@ -616,6 +623,8 @@ def envelope(rslist, kind='loglin', radp=False, sd_extrapolate=True):
 	for rs1 in rslist[1:]:
 		rs0 = env2rs(rs0,rs1)
 
+	rs0.setLabel(label)
+	rs0.setLineFormat(fmt)
 	return rs0
 
 @set_module('qtools')
@@ -915,7 +924,7 @@ def calcrs(th, ffile=None, nf=200, fmin=0.1, fmax=100., xi=0.05,
 	Parameters
 	----------
 	th : an instance of class TimeHistory
-		An acceleration time history defining the base motion.
+		An acceleration or displacement time history defining the base motion.
 	ffile : str, optional
 		Read frequency points from file `ffile`. If not specified, the function
 		will generate `nf` frequency points between `fmin` and `fmax` equally
@@ -951,7 +960,21 @@ def calcrs(th, ffile=None, nf=200, fmin=0.1, fmax=100., xi=0.05,
 	more general in application. For more information see
 	`scipy.integrate.odeint <https://docs.scipy.org/doc/scipy/reference
 	/generated/scipy.integrate.odeint.html#scipy.integrate.odeint>`_.
-	The odeint solver can be used for verification purposes.
+	The odeint solver can be used for verification purposes. In this version,
+	the use of the odeint solver is limited to acceleration input (i.e. 'th' 
+	must be an acceleration time history).
+	
+	A displacement time history (say, `thd`) is differentiated twice before it
+	is used in a	call to the :func:`_psolode` function. Alternatively, the user
+	may copy `thd` into another time history (say, `thv`), differentiate
+	`thv` once, and then use the :func:`_vsolode` function with the following
+	call signature:
+		
+		>>>sd = qt.response_spectrum._vsolode(y0, thd.time, thd.data, thv.data, xi, w, thd.dt_fixed)
+	
+	where 'y0' is a tuple of initial conditions, `xi` is damping ratio, and `w`
+	is an array of frequencies (in rad/s). The returned parameter `sd` is an
+	array of spectral displacements.
 	"""
 
 	# Code involving dml is legacy code, but opens the option to compute
@@ -959,9 +982,13 @@ def calcrs(th, ffile=None, nf=200, fmin=0.1, fmax=100., xi=0.05,
 	dml = 'viscous'
 
 	# Preliminary checks
-	if th.ordinate != 'a':
+	if th.ordinate != 'a' and solver != 'solode':
 		raise TypeError('The time history used as input to function calcrs '
-				  'must be an acceleration time history.')
+				  'must be an acceleration time history (unless the solode solver '
+				  'is used).')
+	if th.ordinate not in ['a', 'd']:
+			raise TypeError('The time history used as input to function calcrs '
+					  'must be an acceleration or displacement time history.')
 	if xi >= 1.0 and solver=='solode':
 		raise ValueError('The damping ratio must be less than 1 when using '
 				   'the solode solver.')
@@ -1016,7 +1043,20 @@ def calcrs(th, ffile=None, nf=200, fmin=0.1, fmax=100., xi=0.05,
 				sol = odeint(fun1, y0, th.time, args=(w[i], xi, th))
 			sd[i] = np.amax(np.fabs(sol[:,0]))
 	elif solver == 'solode':
-		sd = _psolode(y0, th.time, th.data, xi, w, th.dt_fixed)
+		if th.ordinate == 'd':
+			# Create a copy of the displacement time history
+			thc = copy.deepcopy(th)
+			# Temporarily suppress output
+			output_level = Info.getLevel()
+			Info.setLevel(1)
+			# Differentiate the time history twice
+			thc.differentiate().differentiate()
+			# Restore previous output level
+			Info.setLevel(output_level)
+			# Compute the response spectrum
+			sd = _psolode(y0, thc.time, thc.data, xi, w, th.dt_fixed)
+		else:
+			sd = _psolode(y0, th.time, th.data, xi, w, th.dt_fixed)
 
 	# Set spectral accelerations equal to the ZPA for f > Nyquist frequency
 	if fmax > th.fNyq:
@@ -1145,14 +1185,33 @@ def calcrs_cmp(ths, ffile=None, nf=200, fmin=0.1, fmax=100, xi=0.05,
 
 @jit(nopython=True, parallel=True, cache=True)
 def _psolode(y0, t, f, xi, wn, dt_fixed):
-	"""Wrapper for :func:`_solode`. All this function does is to loop over all
-	frequencies and find the maximum spectral displacement for each frequency.
+	"""Wrapper for :func:`_solode`. This function loops over all	frequencies and
+	finds the maximum spectral displacement for each frequency.
+	This function takes acceleration base input.
 	"""
 
 	sd = np.empty_like(wn)
 	for i in prange(wn.size):
 		sol = _solode(y0, t, f, xi, wn[i], dt_fixed)
 		sd[i] = np.max(np.fabs(sol[:,0]))
+
+	return sd
+
+@jit(nopython=True, parallel=True, cache=True)
+def _vsolode(y0, t, d, v, xi, wn, dt_fixed):
+	"""Wrapper for :func:`_solode`. This function loops over all frequencies and
+	finds the maximum spectral displacement for each frequency.
+	This function takes displacement and velocity input.
+	"""
+
+	sd = np.empty_like(wn)
+	for i in prange(wn.size):
+		# Effective forcing function
+		f = 2*xi*wn[i]*v + wn[i]**2*d
+		sol = _solode(y0, t, f, xi, wn[i], dt_fixed)
+		# Note: `sol` contains total displacement and total velocity. Therefore,
+		# to get relative displacement, we must subtract the base motion `d`.
+		sd[i] = np.max(np.fabs(sol[:,0]-d))
 
 	return sd
 
@@ -1183,17 +1242,20 @@ def _solode(y0, t, f, xi, w, dt_fixed):
 	Returns
 	-------
 	y : NumPy array, shape (t.size, 2)
-		Array containing the values of displacement (first column) and
-		velocities (second column) for each time point in th.time, with the
-		initial values y0 in the first row.
+		Array containing the values of relative displacements (first column)
+		and	velocities (second column) for each time point in th.time, with the
+		initial values y0 in the first row. For accelerations see below.
 
-	Note
-	----
+	Notes
+	-----
 	This solver is based on the method derived by `Nigam & Jennings (1969)`_.
 
 	Due to recent developments in Numba, `y0` should not be defined as a
-	mutable object (i.e. a list). All objects provided in the call to
-	:func:`_solode` should be immutable.
+	mutable object (e.g. a list). All objects provided in the call to
+	:func:`_solode` should be immutable. Defining `y0` as a tuple is fine.
+
+	The total accelerations are most conveniently and accurately obtained as
+	``a = -(2*xi*w*y[:,1] + w**2*y[:,0])``.
 
 	References
 	----------

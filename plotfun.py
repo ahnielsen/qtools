@@ -1,7 +1,7 @@
 """
 Package: Qtools
 Module: plotfun
-(C) 2020-2022 Andreas H. Nielsen
+(C) 2020-2025 Andreas H. Nielsen
 See README.md for further details.
 """
 
@@ -79,6 +79,8 @@ def plotrs(*args, **kwargs):
 		Set the figure size. The first value in the tuple is the figure width
 		(in cm) and the second is the figure height (also in cm). If None is
 		passed, the default Matplotlib values will be used. Default: None.
+	title : str
+		Title to be placed above plot.
 
 	Notes
 	-----
@@ -117,6 +119,7 @@ def plotrs(*args, **kwargs):
 	dpi = kwargs.get('dpi', None)
 	grid = kwargs.get('grid', {'which': 'major', 'color': '0.75'})
 	fig_size = kwargs.get('fig_size', None)
+	title = kwargs.get('title', None)
 
 	plt.style.use(style)
 
@@ -188,6 +191,8 @@ def plotrs(*args, **kwargs):
 
 	if show_legend:
 		ax.legend(**legend)
+		
+	ax.set_title(title)
 
 	ax.grid(**grid)
 
@@ -259,6 +264,8 @@ def plotps(*args, **kwargs):
 		The keys in this dictionary will be used to set the arguments in a
 		call to :func:`matplotlib.pyplot.grid`. Default: ``{'which': 'major',
 		'color': '0.75'}``
+	title : str
+		Title to be placed above plot.
 
 	Notes
 	-----
@@ -283,6 +290,7 @@ def plotps(*args, **kwargs):
 	filename = kwargs.get('filename', '')
 	dpi = kwargs.get('dpi', None)
 	grid = kwargs.get('grid', {'which': 'major', 'color': '0.75'})
+	title = kwargs.get('title', None)
 
 	plt.style.use(style)
 
@@ -341,6 +349,8 @@ def plotps(*args, **kwargs):
 	if show_legend:
 		ax.legend(**legend)
 
+	ax.set_title(title)
+	
 	ax.grid(**grid)
 
 	if len(filename) > 0:
@@ -361,23 +371,29 @@ def plotth(*args, **kwargs):
 
 	Other parameters
 	----------------
-	legend : bool
-		Display the legend on the plot. Default False.
+	bottom : float
+		Sets the lower limit on the y-axis.
+	dpi : int
+		Dots per inch to use if plot is saved to file. Default None.
 	filename : str
 		If given, save plot to file using `filename` as file name. The file
 		name should include the desired extension (e.g. 'png' or 'svg'), from
 		which the file format will be determined as per
 		:func:`matplotlib.pyplot.savefig`.
-	dpi : int
-		Dots per inch to use if plot is saved to file. Default None.
-	right : float
-		Sets the upper limit on the x-axis.
+	grid : dict
+		The keys in this dictionary will be used to set the arguments in a
+		call to :func:`matplotlib.pyplot.grid`. Default: ``{'which': 'major',
+		'color': '0.75'}``
 	left : float
 		Sets the lower limit on the x-axis.
+	legend : bool
+		Display the legend on the plot. Default False.
+	right : float
+		Sets the upper limit on the x-axis.
+	title : str
+		Title to be placed above plot.
 	top : float
 		Sets the upper limit on the y-axis.
-	bottom : float
-		Sets the lower limit on the y-axis.
 
 	Notes
 	-----
@@ -389,6 +405,8 @@ def plotth(*args, **kwargs):
 	show_legend = kwargs.get('legend',False)
 	filename = kwargs.get('filename','')
 	dpi = kwargs.get('dpi',None)
+	title = kwargs.get('title', None)
+	grid = kwargs.get('grid', {'which': 'major', 'color': '0.75'})
 
 	plt.xlabel('Time [s]')
 
@@ -423,6 +441,10 @@ def plotth(*args, **kwargs):
 
 	if show_legend:
 		plt.legend(loc='best')
+	
+	plt.title(title)
+	
+	plt.grid(**grid)
 
 	if len(filename) > 0:
 		plt.savefig(filename, dpi=dpi)
